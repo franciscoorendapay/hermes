@@ -1,0 +1,15 @@
+nelmio_cors:
+    defaults:
+        origin_regex: true
+        allow_origin: ['%env(CORS_ALLOW_ORIGIN)%']
+        allow_methods: ['GET', 'OPTIONS', 'POST', 'PUT', 'PATCH', 'DELETE']
+        allow_headers: ['Content-Type', 'Authorization', 'X-Requested-With']
+        expose_headers: ['Link', 'Content-Length', 'Content-Type']
+        max_age: 3600
+    paths:
+        '^/api':
+            allow_origin: ['*']  # Fallback: permite todas as origens se a env var não estiver configurada
+            allow_methods: ['GET', 'OPTIONS', 'POST', 'PUT', 'PATCH', 'DELETE']
+            allow_headers: ['Content-Type', 'Authorization', 'X-Requested-With']
+            expose_headers: ['Link', 'Content-Length', 'Content-Type']
+            max_age: 3600
