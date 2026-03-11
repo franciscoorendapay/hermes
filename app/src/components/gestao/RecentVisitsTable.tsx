@@ -28,7 +28,7 @@ export function RecentVisitsTable({ userId }: RecentVisitsTableProps) {
     async function fetchVisits() {
       setIsLoading(true);
       try {
-        const response = await http.get(`/visits?user_ids=${userId}`);
+        const response = await http.get(`/api/visits?user_ids=${userId}`);
         const visitasData = response.data || [];
 
         if (visitasData.length === 0) {

@@ -1,0 +1,17 @@
+nelmio_api_doc:
+    areas:
+        path_patterns:
+            - ^/api(?!/doc$) 
+    documentation:
+        info:
+            title: Hermes - Sistema de Gestão
+            description: API completa para gerenciamento de prospecção, visitas e inteligência de vendas.
+            version: 1.0.0
+        components:
+            securitySchemes:
+                Bearer:
+                    type: http
+                    scheme: bearer
+                    bearerFormat: JWT
+        security:
+            - Bearer: []
