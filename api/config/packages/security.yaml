@@ -44,6 +44,10 @@ security:
 
     # Note: Only the *first* matching rule is applied
     access_control:
+        # Swagger UI e JSON devem ser públicos
+        - { path: ^/api/doc.json, roles: PUBLIC_ACCESS }
+        - { path: ^/api/doc, roles: PUBLIC_ACCESS }
+
         - { path: ^/api/auth/login, roles: PUBLIC_ACCESS }
         - { path: ^/api/auth/refresh, roles: PUBLIC_ACCESS }
         - { path: ^/api/auth/setup-password, roles: PUBLIC_ACCESS }

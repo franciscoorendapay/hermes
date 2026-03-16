@@ -20,33 +20,20 @@ use Psr\Log\LoggerInterface;
 class LeadController extends AbstractController
 {
     #[Route('', name: 'app_lead_index', methods: ['GET'])]
-    public function index(Request $request, LeadRepository $leadRepository, LoggerInterface $logger): JsonResponse
+    public function index(Request $request, LeadRepository $leadRepository): JsonResponse
     {
-        $startTime = microtime(true);
         $user = $this->getUser();
+        if (!$user) return $this->json(['error' => 'Unauthenticated'], 401);
+
         
-        if (!$user) {
-             return $this->json(['error' => 'Unauthenticated'], Response::HTTP_UNAUTHORIZED);
-        }
+        $page = $request->query->getInt('page', 1);
+        $limit = 10; 
 
-        $userIds = $request->query->get('user_ids');
+        $criteria = ['user' => $user];
         
-        $criteria = [];
-        if ($userIds) {
-            // Explode comma separated IDs
-            $ids = explode(',', $userIds);
-            $criteria['user'] = $ids;
-        } else {
-            // Default to current user
-            $criteria['user'] = $user;
-        }
+        $result = $leadRepository->findPaginated($criteria, $page, $limit);
 
-        $leads = $leadRepository->findBy($criteria);
-
-        $duration = (microtime(true) - $startTime) * 1000;
-        $logger->info(sprintf('API Lead Index: %d leads found for users [%s] in %.2f ms', count($leads), $userIds ?? 'current', $duration));
-
-        return $this->json($leads, Response::HTTP_OK, [], ['groups' => 'lead:read']);
+        return $this->json($result, Response::HTTP_OK, [], ['groups' => 'lead:read']);
     }
 
     #[Route('/stats', name: 'app_lead_stats', methods: ['GET'])]
@@ -202,5 +189,14 @@ class LeadController extends AbstractController
             ->getResult();
 
         return $this->json($visits, Response::HTTP_OK, [], ['groups' => 'visit:read']);
+    }
+    #[Route('/admin/all', name: 'app_lead_admin_index', methods: ['GET'])]
+    public function adminIndex(LeadRepository $leadRepository): JsonResponse
+    {
+        $this->denyAccessUnlessGranted('ROLE_ADMIN');
+
+        $leads = $leadRepository->findAll();
+
+        return $this->json($leads, Response::HTTP_OK, [], ['groups' => 'lead:read']);
     }
 }
