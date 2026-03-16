@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { useLocation } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Map, Route, Calendar } from "lucide-react";
@@ -29,6 +29,8 @@ export default function Routes() {
     return reminders.filter((r) => isToday(parseISO(r.data_lembrete)));
   }, [reminders]);
 
+  const prevRemindersRef = useRef<typeof todayReminders>([]);
+
   // Initial fetch of route for today
   useEffect(() => {
     if (isAuthenticated) {
@@ -36,9 +38,11 @@ export default function Routes() {
     }
   }, [isAuthenticated, fetchRoute]);
 
-  // Load stops from saved route OR today's reminders
+  const prevCurrentRouteIdRef = useRef<number | null>(null);
+
+  // Load stops from saved route WHEN currentRoute changes
   useEffect(() => {
-    if (currentRoute) {
+    if (currentRoute && currentRoute.id !== prevCurrentRouteIdRef.current) {
       // If we have a saved route from backend
       setRouteSaved(true);
       const savedStops: RouteStop[] = currentRoute.items.map((item) => {
@@ -69,35 +73,72 @@ export default function Routes() {
         };
       });
       setStops(savedStops);
-    } else if (todayReminders.length > 0 && stops.length === 0 && !routeSaved) {
-      // If no saved route, load from reminders as draft
-      const stopsFromReminders: RouteStop[] = todayReminders.map((reminder, index) => {
-        const address = reminder.estabelecimento_endereco
-          ? [
-            reminder.estabelecimento_endereco,
-            reminder.estabelecimento_numero,
-            reminder.estabelecimento_bairro,
-            reminder.estabelecimento_cidade,
-          ]
-            .filter(Boolean)
-            .join(", ")
-          : "Endereço não informado";
-
-        return {
-          id: Date.now() + index,
-          reminderId: String(reminder.id),
-          name: reminder.lead?.tradeName || reminder.estabelecimento_nome || "Estabelecimento",
-          address,
-          time: reminder.hora_lembrete.substring(0, 5),
-          duration: "15 min",
-          selected: true,
-          lat: reminder.estabelecimento_lat || undefined,
-          lng: reminder.estabelecimento_lng || undefined,
-        };
-      });
-      setStops(stopsFromReminders);
+      prevCurrentRouteIdRef.current = currentRoute.id;
     }
-  }, [currentRoute, todayReminders, stops.length]);
+  }, [currentRoute]);
+
+  // Sync added/removed reminders to stops dynamically
+  useEffect(() => {
+    const current = todayReminders;
+    const prev = prevRemindersRef.current;
+
+    const addedReminders = current.filter((c) => !prev.some((p) => p.id === c.id));
+    const removedReminders = prev.filter((p) => !current.some((c) => c.id === p.id));
+
+    if (addedReminders.length > 0 || removedReminders.length > 0) {
+      setStops((currentStops) => {
+        let newStops = [...currentStops];
+        
+        if (removedReminders.length > 0) {
+          const removedIds = new Set(removedReminders.map((r) => String(r.id)));
+          newStops = newStops.filter((s) => !s.reminderId || !removedIds.has(s.reminderId));
+        }
+
+        if (addedReminders.length > 0) {
+          // Avoid duplicate entry if the map/route logic already added it
+          const newAddedReminders = addedReminders.filter(
+            (reminder) => !currentStops.some((s) => s.reminderId === String(reminder.id))
+          );
+
+          if (newAddedReminders.length > 0) {
+            const addedStops: RouteStop[] = newAddedReminders.map((reminder, index) => {
+              const address = reminder.estabelecimento_endereco
+                ? [
+                  reminder.estabelecimento_endereco,
+                  reminder.estabelecimento_numero,
+                  reminder.estabelecimento_bairro,
+                  reminder.estabelecimento_cidade,
+                ]
+                  .filter(Boolean)
+                  .join(", ")
+                : "Endereço não informado";
+
+              return {
+                id: Date.now() + index + Math.random(),
+                reminderId: String(reminder.id),
+                name: reminder.lead?.tradeName || reminder.estabelecimento_nome || "Estabelecimento",
+                address,
+                time: reminder.hora_lembrete.substring(0, 5),
+                duration: "15 min",
+                // Select newly added ones by default!
+                selected: true,
+                lat: reminder.estabelecimento_lat || undefined,
+                lng: reminder.estabelecimento_lng || undefined,
+              };
+            });
+            newStops = [...newStops, ...addedStops];
+          }
+        }
+        
+        return newStops;
+      });
+
+      // A real dynamic sync happened (either removed or added), so the route is now modified
+      setRouteSaved(false);
+    }
+    
+    prevRemindersRef.current = current;
+  }, [todayReminders]);
 
   // Effect to handle navigation state
   useEffect(() => {
