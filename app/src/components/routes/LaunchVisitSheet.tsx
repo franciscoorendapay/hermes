@@ -1,4 +1,4 @@
-﻿import {
+import {
   Sheet,
   SheetContent,
   SheetDescription,
@@ -75,7 +75,7 @@ import { LeadDetailSheet } from "@/components/leads/LeadDetailSheet";
 import type { Lead } from "@/hooks/useLeads";
 import { toast } from "sonner";
 import { FUNIL } from "@/constants/funil";
-import type { PlaceResult } from "@/components/routes/PlacesSearch";
+import { PlacesSearch, type PlaceResult } from "@/components/routes/PlacesSearch";
 import { formatPhone, formatCpfCnpjInput, formatMoneyInput, parseMoneyInput } from "@/lib/formatters";
 import { validateCpfCnpj, validatePhone } from "@/lib/validators";
 import { useGeolocation, calculateDistance } from "@/hooks/useGeolocation";
@@ -1704,6 +1704,36 @@ export function LaunchVisitSheet({
         <div className="h-3 w-3 rounded-full bg-blue-500" />
         <span className="text-sm font-medium text-blue-700">Prospecção</span>
         <span className="text-xs text-blue-500 ml-auto">(status inicial)</span>
+      </div>
+
+      {/* Buscar no Google e Mapa */}
+      <div className="space-y-4">
+        <div className="space-y-2">
+          <Label>Procurar Estabelecimento no Google</Label>
+          <PlacesSearch 
+            onPlaceSelect={handlePlaceSelect} 
+            placeholder="Digite o nome do local..." 
+          />
+        </div>
+
+        {placeLat && placeLng && (
+          <div className="w-full h-48 rounded-md overflow-hidden border border-border mt-2">
+            <iframe
+              width="100%"
+              height="100%"
+              style={{ border: 0 }}
+              loading="lazy"
+              allowFullScreen
+              src={`https://www.google.com/maps?q=${placeLat},${placeLng}&hl=pt-BR&z=15&output=embed`}
+            />
+          </div>
+        )}
+
+        <div className="flex items-center">
+           <div className="h-px flex-1 bg-border" />
+           <span className="px-3 text-xs text-muted-foreground">ou preencha manualmente</span>
+           <div className="h-px flex-1 bg-border" />
+        </div>
       </div>
 
       {/* Nome Fantasia */}

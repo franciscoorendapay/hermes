@@ -111,14 +111,10 @@ export function MapTab({ leads, onAddToRoute, onCreateLead, onLeadSaved }: MapTa
   }, [map, center, isSimulated]);
 
   const handleAddToRoute = useCallback((place: PlaceResult) => {
-    // Em "Adicionar Agendamento" não queremos mais adicionar à rota,
-    // e sim abrir o modal de novo agendamento (LaunchVisitSheet)
-    // já com o lugar selecionado.
-    setVisitInitialPlace(place);
-    setVisitInitialType("novo-cliente");
-    setShowVisitSheet(true);
+    // Adicionar à rota / Abrir agendamento no App principal
+    onAddToRoute(place);
     setShowAddPlaceModal(false);
-  }, []);
+  }, [onAddToRoute]);
 
   const handleNewClient = useCallback((place: PlaceResult) => {
     setVisitInitialPlace(place);

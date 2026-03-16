@@ -16,6 +16,8 @@ import { isToday, parseISO } from "date-fns";
 
 export default function Routes() {
   const [activeTab, setActiveTab] = useState("mapa");
+  const [addVisitOpen, setAddVisitOpen] = useState(false);
+  const [addVisitInitialPlace, setAddVisitInitialPlace] = useState<PlaceResult | null>(null);
   const [stops, setStops] = useState<RouteStop[]>([]);
   const [routeSaved, setRouteSaved] = useState(false);
   const { isAuthenticated } = useAuth();
@@ -72,7 +74,14 @@ export default function Routes() {
           lng: reminder.estabelecimento_lng || undefined,
         };
       });
-      setStops(savedStops);
+      setStops((currentStops) => {
+        // Mantenha quaisquer paradas que já carregaram (ex: novos agendamentos criados)
+        // que ainda não estejam salvos na rota (identificados pela falta do reminderId na rota)
+        const unsavedExistingStops = currentStops.filter(
+          (s) => !savedStops.some((saved) => saved.reminderId === s.reminderId)
+        );
+        return [...savedStops, ...unsavedExistingStops];
+      });
       prevCurrentRouteIdRef.current = currentRoute.id;
     }
   }, [currentRoute]);
@@ -175,20 +184,10 @@ export default function Routes() {
   }, [location.state]);
 
   const handleAddToRoute = useCallback((place: PlaceResult) => {
-    const newStop: RouteStop = {
-      id: Date.now(),
-      name: place.name,
-      address: place.address,
-      time: new Date().toLocaleTimeString("pt-BR", {
-        hour: "2-digit",
-        minute: "2-digit",
-      }),
-      duration: "15 min",
-      selected: true,
-      lat: place.lat,
-      lng: place.lng,
-    };
-    setStops((prev) => [...prev, newStop]);
+    // Now this serves as "Abrir nova visita com o lugar pre-selecionado"
+    setAddVisitInitialPlace(place);
+    setAddVisitOpen(true);
+    setActiveTab("agenda"); // Switch to agenda tab to show the dialog
   }, []);
 
   const handleCreateLead = useCallback((place: PlaceResult) => {
@@ -244,7 +243,11 @@ export default function Routes() {
             <Route className="h-4 w-4" />
             <span className="hidden sm:inline">Roteirização</span>
           </TabsTrigger>
-          <TabsTrigger value="agenda" className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground">
+          <TabsTrigger 
+            value="agenda" 
+            className="gap-2 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground"
+            onClick={() => setAddVisitOpen(true)}
+          >
             <Calendar className="h-4 w-4" />
             <span className="hidden sm:inline">Agenda</span>
           </TabsTrigger>
@@ -271,7 +274,14 @@ export default function Routes() {
         </TabsContent>
 
         <TabsContent value="agenda" className="flex-1 mt-4 data-[state=inactive]:hidden">
-          <AgendaTab />
+          <AgendaTab 
+            addVisitOpen={addVisitOpen}
+            setAddVisitOpen={(open) => {
+              setAddVisitOpen(open);
+              if (!open) setAddVisitInitialPlace(null);
+            }}
+            addVisitInitialPlace={addVisitInitialPlace}
+          />
         </TabsContent>
       </Tabs>
     </div>

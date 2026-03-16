@@ -112,9 +112,23 @@ interface ActionConfig {
   variant: "default" | "outline" | "secondary";
 }
 
-export function AgendaTab() {
+interface AgendaTabProps {
+  addVisitOpen?: boolean;
+  setAddVisitOpen?: (open: boolean) => void;
+  addVisitInitialPlace?: PlaceResult | null;
+}
+
+export function AgendaTab({ 
+  addVisitOpen: externalAddVisitOpen, 
+  setAddVisitOpen: externalSetAddVisitOpen,
+  addVisitInitialPlace 
+}: AgendaTabProps = {}) {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-  const [addVisitOpen, setAddVisitOpen] = useState(false);
+  const [internalAddVisitOpen, setInternalAddVisitOpen] = useState(false);
+  
+  const addVisitOpen = externalAddVisitOpen !== undefined ? externalAddVisitOpen : internalAddVisitOpen;
+  const setAddVisitOpen = externalSetAddVisitOpen || setInternalAddVisitOpen;
+
   const [prospeccaoSheetOpen, setProspeccaoSheetOpen] = useState(false);
   const [prospeccaoData, setProspeccaoData] = useState<{
     reminderId: string;
@@ -554,6 +568,7 @@ export function AgendaTab() {
         selectedDate={selectedDate}
         onSave={handleSaveVisit}
         onSaveWithLead={handleSaveVisitWithLead}
+        initialPlace={addVisitInitialPlace}
       />
 
       {/* Prospecção Sheet - for new leads */}
