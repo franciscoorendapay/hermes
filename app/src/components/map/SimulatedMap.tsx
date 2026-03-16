@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import { MapPin, Navigation, Minus, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useGeolocation } from "@/hooks/useGeolocation";
@@ -78,6 +78,13 @@ export function SimulatedMap({
     setPan({ x: 0, y: 0 });
     setZoom(1);
   }, []);
+
+  // Quando um place é selecionado via busca, dá um "zoom de rua"
+  useEffect(() => {
+    if (selectedPlace) {
+      setZoom(2.5);
+    }
+  }, [selectedPlace]);
 
   if (geoLoading) {
     return <Skeleton className="w-full rounded-lg" style={{ height }} />;

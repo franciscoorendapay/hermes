@@ -840,6 +840,10 @@ export function LaunchVisitSheet({
       toast.error("Preencha o Nome Fantasia");
       return false;
     }
+    if (nomeFantasia.trim().length < 10) {
+  toast.error("O Nome Fantasia deve ter no mínimo 10 caracteres");
+  return false;
+}
     // Validação de endereço estruturado
     if (!enderecoRua.trim()) {
       toast.error("Preencha a Rua/Logradouro");
