@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -27,9 +28,8 @@ import {
   Mail,
   MoreVertical,
   Upload,
+  Loader2,
   Calendar,
-  ChevronLeft,
-  ChevronRight,
 } from "lucide-react";
 import { TableSkeleton } from "@/components/ui/table-skeleton";
 import {
@@ -68,6 +68,7 @@ const DATE_FILTERS = [
 
 const isInDateRange = (dateString: string | null, filter: string): boolean => {
   if (!dateString || filter === "all") return true;
+
   const date = parseISO(dateString);
   const today = startOfDay(new Date());
 
@@ -90,27 +91,21 @@ const isInDateRange = (dateString: string | null, filter: string): boolean => {
 
 export default function Leads() {
   const { user } = useAuth();
-  
-  // Estado para controle da página atual
-  const [currentPage, setCurrentPage] = useState(1);
-  
-  // Hook atualizado para receber a página
-  const { data, isLoading, refetch } = useLeads(!!user, currentPage);
-
-  // Extração correta dos dados e metadados
-  const leadsList = data?.leads || [];
-  const meta = data?.meta || { total: 0, last_page: 1, page: 1 };
+  const { data: leads = [], isLoading, refetch } = useLeads(!!user);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [dateFilter, setDateFilter] = useState("all");
 
+  // Detail sheet state
   const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
   const [showDetailSheet, setShowDetailSheet] = useState(false);
+
+  // Visit sheet state
   const [showVisitSheet, setShowVisitSheet] = useState(false);
   const [directAction, setDirectAction] = useState<string | null>(null);
 
-  const filteredLeads = leadsList.filter((lead) => {
+  const filteredLeads = leads.filter((lead) => {
     const searchLower = searchQuery.toLowerCase();
     const matchesSearch =
       lead.nome_fantasia?.toLowerCase().includes(searchLower) ||
@@ -124,7 +119,7 @@ export default function Leads() {
   });
 
   const getInitials = (name: string): string => {
-    return (name || "S N")
+    return name
       .split(" ")
       .map((n) => n[0])
       .slice(0, 2)
@@ -166,6 +161,7 @@ export default function Leads() {
 
   return (
     <div className="space-y-6">
+      {/* Header */}
       <PageHeader
         title="Leads"
         description="Gerencie seus leads e prospects"
@@ -175,12 +171,19 @@ export default function Leads() {
           <Upload className="h-4 w-4" />
           Importar
         </Button>
-        <Button className="gap-2 gradient-dark text-white border-0">
-          <Plus className="h-4 w-4 text-primary" />
-          Novo Lead
-        </Button>
+        <Button className="gap-2 gradient-dark text-white border-0"
+        onClick={() => {
+          setSelectedLead(null); 
+          setDirectAction(null);
+          setShowVisitSheet(true);
+        }}
+      >
+        <Plus className="h-4 w-4 text-primary" />
+        Novo Lead
+      </Button>
       </PageHeader>
 
+      {/* Filters */}
       <Card className="glass">
         <CardContent className="p-4">
           <div className="flex flex-col sm:flex-row gap-4">
@@ -224,6 +227,7 @@ export default function Leads() {
         </CardContent>
       </Card>
 
+      {/* Table */}
       <Card className="glass">
         <CardContent className="p-0">
           {isLoading ? (
@@ -231,6 +235,9 @@ export default function Leads() {
           ) : filteredLeads.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
               <p>Nenhum lead encontrado</p>
+              {searchQuery || statusFilter !== "all" ? (
+                <p className="text-sm">Tente ajustar os filtros</p>
+              ) : null}
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -249,12 +256,16 @@ export default function Leads() {
                     const funilId = lead.funil_app ?? 1;
                     const funilStatus = FUNIL.find((f) => f.id === funilId);
                     const avatarColor = AVATAR_COLORS[funilId] || "bg-gray-500";
+
                     const endereco = [
                       lead.endereco_logradouro,
                       lead.endereco_numero ? `nº ${lead.endereco_numero}` : null,
+                      lead.endereco_bairro,
                       lead.endereco_cidade,
                       lead.endereco_estado,
-                    ].filter(Boolean).join(", ");
+                    ]
+                      .filter(Boolean)
+                      .join(", ");
 
                     return (
                       <TableRow
@@ -264,37 +275,103 @@ export default function Leads() {
                       >
                         <TableCell>
                           <div className="flex items-center gap-3">
-                            <div className={cn("h-10 w-10 rounded-full flex items-center justify-center text-white font-medium", avatarColor)}>
+                            <div
+                              className={cn(
+                                "h-10 w-10 rounded-full flex items-center justify-center text-white font-medium",
+                                avatarColor
+                              )}
+                            >
                               {getInitials(lead.nome_fantasia)}
                             </div>
                             <div>
-                              <p className="font-medium">{lead.nome_fantasia || "Sem nome"}</p>
+                              <p className="font-medium">{lead.nome_fantasia}</p>
+                              <p className="text-sm text-muted-foreground md:hidden">
+                                {lead.email || lead.telefone}
+                              </p>
                             </div>
                           </div>
                         </TableCell>
-                        <TableCell className="hidden md:table-cell text-sm">
-                          {lead.email || lead.telefone || "-"}
+                        <TableCell className="hidden md:table-cell">
+                          <div className="space-y-1">
+                            {lead.email && (
+                              <div className="flex items-center gap-2 text-sm">
+                                <Mail className="h-3 w-3 text-muted-foreground" />
+                                {lead.email}
+                              </div>
+                            )}
+                            {lead.telefone && (
+                              <div className="flex items-center gap-2 text-sm">
+                                <Phone className="h-3 w-3 text-muted-foreground" />
+                                {lead.telefone}
+                              </div>
+                            )}
+                          </div>
                         </TableCell>
-                        <TableCell className="hidden lg:table-cell text-sm truncate max-w-xs">
-                          {endereco || "Endereço não informado"}
+                        <TableCell className="hidden lg:table-cell">
+                          {endereco && (
+                            <div className="flex items-center gap-2 text-sm max-w-xs truncate">
+                              <MapPin className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                              {endereco}
+                            </div>
+                          )}
                         </TableCell>
                         <TableCell>
                           {funilStatus && (
-                            <Badge variant="outline" className={cn(funilStatus.color, funilStatus.textColor, "border-0")}>
+                            <Badge
+                              variant="outline"
+                              className={cn(
+                                funilStatus.color,
+                                funilStatus.textColor,
+                                "border-0"
+                              )}
+                            >
                               {funilStatus.label}
                             </Badge>
                           )}
                         </TableCell>
-                        <TableCell onClick={(e) => e.stopPropagation()}>
+                        <TableCell>
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={(e) => e.stopPropagation()}
+                              >
                                 <MoreVertical className="h-4 w-4" />
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => handleLeadClick(lead)}>Ver detalhes</DropdownMenuItem>
-                              <DropdownMenuItem className="text-destructive">Excluir</DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleLeadClick(lead);
+                                }}
+                              >
+                                Ver detalhes
+                              </DropdownMenuItem>
+                              {/* Só mostra Editar se não for credenciado */}
+                              {!(lead.funil_app === 5 && lead.credenciado === 1) && (
+                                <DropdownMenuItem
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    // Map funil_app to edit action
+                                    const funilId = lead.funil_app ?? 1;
+                                    const actionMap: Record<number, string> = {
+                                      1: "prospeccao",
+                                      2: "qualificacao",
+                                      3: "negociacao",
+                                      4: "precificacao",
+                                      5: "precificacao"
+                                    };
+                                    handleEditar(lead, actionMap[funilId] || "prospeccao");
+                                  }}
+                                >
+                                  Editar
+                                </DropdownMenuItem>
+                              )}
+                              <DropdownMenuItem className="text-destructive">
+                                Excluir
+                              </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </TableCell>
@@ -306,38 +383,9 @@ export default function Leads() {
             </div>
           )}
         </CardContent>
-
-        {/* Rodapé de Paginação */}
-        <div className="p-4 flex items-center justify-between border-t border-white/10">
-          <div className="text-sm text-muted-foreground">
-            Total: <strong>{meta.total}</strong> leads
-          </div>
-          <div className="flex items-center gap-4">
-            <span className="text-sm font-medium">
-              Página {meta.page} de {meta.last_page}
-            </span>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="icon"
-                disabled={currentPage === 1}
-                onClick={() => setCurrentPage(prev => prev - 1)}
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="outline"
-                size="icon"
-                disabled={currentPage >= meta.last_page}
-                onClick={() => setCurrentPage(prev => prev + 1)}
-              >
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-        </div>
       </Card>
 
+      {/* Lead Detail Sheet */}
       <LeadDetailSheet
         lead={selectedLead}
         open={showDetailSheet}
@@ -346,10 +394,11 @@ export default function Leads() {
         onEditar={handleEditar}
       />
 
+      {/* Launch Visit Sheet for continuing or editing */}
       <LaunchVisitSheet
         open={showVisitSheet}
         onOpenChange={handleVisitSheetClose}
-        leads={leadsList}
+        leads={leads}
         selectedLead={selectedLead}
         directAction={directAction}
         onLeadSaved={handleLeadSaved}
