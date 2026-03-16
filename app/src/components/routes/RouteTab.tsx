@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { calculateDistance } from "@/hooks/useGeolocation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -36,6 +36,52 @@ interface RouteTabProps {
 }
 
 export function RouteTab({ stops, onStopsChange, routeSaved, onRouteSavedChange }: RouteTabProps) {
+  const [draggedId, setDraggedId] = useState<number | null>(null);
+  const [dragOverId, setDragOverId] = useState<number | null>(null);
+
+  const handleDragStart = (e: React.DragEvent, id: number) => {
+    if (routeSaved) return;
+    setDraggedId(id);
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", id.toString());
+  };
+
+  const handleDragOver = (e: React.DragEvent, id: number) => {
+    e.preventDefault(); // Necessary to allow dropping
+    if (routeSaved || draggedId === null || draggedId === id) return;
+    setDragOverId(id);
+  };
+
+  const handleDragLeave = () => {
+    setDragOverId(null);
+  };
+
+  const handleDrop = (e: React.DragEvent, destinationId: number) => {
+    e.preventDefault();
+    if (routeSaved || draggedId === null || draggedId === destinationId) {
+      setDraggedId(null);
+      setDragOverId(null);
+      return;
+    }
+
+    const draggedIndex = stops.findIndex(s => s.id === draggedId);
+    const dropIndex = stops.findIndex(s => s.id === destinationId);
+
+    if (draggedIndex !== -1 && dropIndex !== -1) {
+      const newStops = [...stops];
+      const [draggedItem] = newStops.splice(draggedIndex, 1);
+      newStops.splice(dropIndex, 0, draggedItem);
+      onStopsChange(newStops);
+    }
+    
+    setDraggedId(null);
+    setDragOverId(null);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedId(null);
+    setDragOverId(null);
+  };
 
   const toggleStop = (id: number) => {
     onStopsChange(
@@ -152,12 +198,22 @@ export function RouteTab({ stops, onStopsChange, routeSaved, onRouteSavedChange 
             stops.map((stop, index) => (
               <div
                 key={stop.id}
+                draggable={!routeSaved}
+                onDragStart={(e) => handleDragStart(e, stop.id)}
+                onDragOver={(e) => handleDragOver(e, stop.id)}
+                onDragLeave={handleDragLeave}
+                onDrop={(e) => handleDrop(e, stop.id)}
+                onDragEnd={handleDragEnd}
                 className={`flex items-start gap-3 p-3 rounded-xl transition-all ${
                   routeSaved
                     ? "bg-muted/50"
                     : stop.selected
                     ? "bg-primary/5 border border-primary/20 cursor-pointer"
                     : "bg-muted/50 hover:bg-muted cursor-pointer"
+                } ${
+                  draggedId === stop.id ? "opacity-50 border-dashed" : ""
+                } ${
+                  dragOverId === stop.id ? "ring-2 ring-primary ring-inset bg-primary/10" : ""
                 }`}
                 onClick={() => !routeSaved && toggleStop(stop.id)}
               >
