@@ -66,6 +66,7 @@ interface CredenciamentoFormProps {
   onSuccess: () => void;
   onClose: () => void;
   directToDocuments?: boolean; // Ir direto para seção de documentos
+  onRegisterVisit?: (leadId: string, tipo: string, status: string, obs?: string) => Promise<void>;
 }
 
 interface DocumentUploadProps {
@@ -140,6 +141,7 @@ export function CredenciamentoForm({
   onSuccess,
   onClose,
   directToDocuments = false,
+  onRegisterVisit,
 }: CredenciamentoFormProps) {
   const geolocation = useGeolocation();
   const auth = useAuth();
@@ -606,6 +608,11 @@ export function CredenciamentoForm({
         description: "Agora envie os documentos obrigatórios."
       });
 
+      // Registrar visita de credenciamento pendente
+      if (onRegisterVisit) {
+        await onRegisterVisit(selectedLead.id, "credenciamento", "concluida", "Dados salvos, documentos pendentes");
+      }
+
       // Mostrar seção de documentos
       setShowDocumentos(true);
       setOpenSection("documentos");
@@ -630,16 +637,16 @@ export function CredenciamentoForm({
     if (isCnpj) {
       // CNPJ requires: CNPJ doc, address, photo, activity
       hasAllDocs =
-        (docCnpj || docCnpjUrl) &&
-        (docResidencia || docResidenciaUrl) &&
-        (docFoto || docFotoUrl) &&
-        (docAtividade || docAtividadeUrl);
+        !!(docCnpj || docCnpjUrl) &&
+        !!(docResidencia || docResidenciaUrl) &&
+        !!(docFoto || docFotoUrl) &&
+        !!(docAtividade || docAtividadeUrl);
     } else if (isCpf) {
       // CPF requires: photo, address, activity
       hasAllDocs =
-        (docFoto || docFotoUrl) &&
-        (docResidencia || docResidenciaUrl) &&
-        (docAtividade || docAtividadeUrl);
+        !!(docFoto || docFotoUrl) &&
+        !!(docResidencia || docResidenciaUrl) &&
+        !!(docAtividade || docAtividadeUrl);
     }
 
     if (!hasAllDocs) {
@@ -684,11 +691,6 @@ export function CredenciamentoForm({
         docCnpjUrl: cnpjPath || docCnpjUrl,
         docPhotoUrl: fotoPath || docFotoUrl,
         docResidenceUrl: residenciaPath || docResidenciaUrl,
-        doc_atividade_url: atividadePath || docAtividadeUrl, // Maintain casing mismatch? Schema expects docActivityUrl.
-        // Wait! Schema uses `docActivityUrl`.
-        // Supabase code used `doc_atividade_url`.
-        // I should map to Schema names!
-        // Schema: docActivityUrl, docCnpjUrl, docPhotoUrl, docResidenceUrl.
         docActivityUrl: atividadePath || docAtividadeUrl,
         pendingDocuments: "false"
       });
@@ -702,7 +704,10 @@ export function CredenciamentoForm({
       const apiData = adaptAppToLeadApi({ ...selectedLead, ...leadUpdateData });
       await leadsService.update(selectedLead.id, apiData);
 
-      // Visit logging skipped (new API migration)
+      // Registrar visita de envio para análise
+      if (onRegisterVisit) {
+        await onRegisterVisit(selectedLead.id, "credenciamento", "concluida", "Documentos enviados para análise");
+      }
 
       // Enviar para análise automaticamente após upload dos documentos
       await accreditationsService.submit(existing.id);

@@ -56,7 +56,7 @@ class AccreditationController extends AbstractController
             $accreditations = $qb->getQuery()->getResult();
 
             return $this->json($accreditations, 200, [], ['groups' => 'accreditation:read']);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             return $this->json([
                 'title' => 'An error occurred during serialization',
                 'detail' => $e->getMessage(),
@@ -182,7 +182,7 @@ class AccreditationController extends AbstractController
             // Updated flow: Submit directly to external API bypassing admin approval
             $result = $this->service->approveAndSend($accreditation);
             return $this->json($result);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             return $this->json(['error' => $e->getMessage()], 500);
         }
     }
@@ -193,7 +193,7 @@ class AccreditationController extends AbstractController
         try {
             $result = $this->service->approveAndSend($accreditation);
             return $this->json($result);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             return $this->json(['error' => $e->getMessage()], 500);
         }
     }
@@ -237,7 +237,7 @@ class AccreditationController extends AbstractController
                 'accreditation' => $accreditation
             ], 200, [], ['groups' => 'accreditation:read']);
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             return $this->json([
                 'success' => false,
                 'error' => 'Erro ao reenviar credenciamento: ' . $e->getMessage()
