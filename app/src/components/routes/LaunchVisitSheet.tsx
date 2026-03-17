@@ -841,9 +841,9 @@ export function LaunchVisitSheet({
       return false;
     }
     if (nomeFantasia.trim().length < 10) {
-  toast.error("O Nome Fantasia deve ter no mínimo 10 caracteres");
-  return false;
-}
+      toast.error("O Nome Fantasia deve ter no mínimo 10 caracteres");
+      return false;
+    }
     // Validação de endereço estruturado
     if (!enderecoRua.trim()) {
       toast.error("Preencha a Rua/Logradouro");
@@ -1710,9 +1710,9 @@ export function LaunchVisitSheet({
       <div className="space-y-4">
         <div className="space-y-2">
           <Label>Procurar Estabelecimento no Google</Label>
-          <PlacesSearch 
-            onPlaceSelect={handlePlaceSelect} 
-            placeholder="Digite o nome do local..." 
+          <PlacesSearch
+            onPlaceSelect={handlePlaceSelect}
+            placeholder="Digite o nome do local..."
           />
         </div>
 
@@ -1730,9 +1730,9 @@ export function LaunchVisitSheet({
         )}
 
         <div className="flex items-center">
-           <div className="h-px flex-1 bg-border" />
-           <span className="px-3 text-xs text-muted-foreground">ou preencha manualmente</span>
-           <div className="h-px flex-1 bg-border" />
+          <div className="h-px flex-1 bg-border" />
+          <span className="px-3 text-xs text-muted-foreground">ou preencha manualmente</span>
+          <div className="h-px flex-1 bg-border" />
         </div>
       </div>
 
@@ -2826,7 +2826,7 @@ export function LaunchVisitSheet({
                   </div>
 
                   {/* Nova Fase (opcional para registro simples) */}
-                  <div className="space-y-2">
+                  {/* <div className="space-y-2">
                     <Label htmlFor="novaFase">Atualizar fase (opcional)</Label>
                     <Select value={novaFase} onValueChange={setNovaFase}>
                       <SelectTrigger id="novaFase">
@@ -2844,13 +2844,13 @@ export function LaunchVisitSheet({
                         ))}
                       </SelectContent>
                     </Select>
-                  </div>
+                  </div> */}
 
                   <Button
                     className="w-full"
                     variant="outline"
                     onClick={handleReturnSubmit}
-                    disabled={loading || !novaFase}
+                    disabled={loading}
                   >
                     {loading ? "Salvando..." : "Registrar Visita Simples"}
                   </Button>

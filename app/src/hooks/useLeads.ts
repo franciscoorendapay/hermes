@@ -66,7 +66,7 @@ export interface Lead {
 }
 
 export function useLeads(enabled: boolean = false) {
-  const { effectiveUser } = useAuth();
+  const { effectiveUser, isAuthenticated } = useAuth();
 
   return useQuery({
     queryKey: ['leads', effectiveUser?.id],
@@ -74,7 +74,7 @@ export function useLeads(enabled: boolean = false) {
       const apiLeads = await leadsService.getAll(effectiveUser?.id);
       return apiLeads.map(adaptLeadApiToApp);
     },
-    enabled,
+    enabled: enabled && isAuthenticated && !!effectiveUser?.id,
     staleTime: 1000 * 60 * 5, 
   });
 }
