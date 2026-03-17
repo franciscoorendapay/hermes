@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -170,10 +171,16 @@ export default function Leads() {
           <Upload className="h-4 w-4" />
           Importar
         </Button>
-        <Button className="gap-2 gradient-dark text-white border-0">
-          <Plus className="h-4 w-4 text-primary" />
-          Novo Lead
-        </Button>
+        <Button className="gap-2 gradient-dark text-white border-0"
+        onClick={() => {
+          setSelectedLead(null); 
+          setDirectAction(null);
+          setShowVisitSheet(true);
+        }}
+      >
+        <Plus className="h-4 w-4 text-primary" />
+        Novo Lead
+      </Button>
       </PageHeader>
 
       {/* Filters */}

@@ -89,9 +89,9 @@ export function AddPlaceModal({
               <Route className="h-5 w-5 text-primary" />
             </div>
             <div className="text-left">
-              <p className="font-medium">Adicionar à Rota</p>
+              <p className="font-medium">Adicionar Agendamento</p>
               <p className="text-xs text-muted-foreground">
-                Apenas incluir como parada do dia
+                Adicionar novo agendamento
               </p>
             </div>
           </Button>

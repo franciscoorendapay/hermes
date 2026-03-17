@@ -42,9 +42,9 @@ export function getEffectiveFunilId(lead: LeadWithDates & { credenciado?: number
   if (isLeadFrio(lead)) return 8; // Frio
 
   // Se estiver na etapa de Credenciamento (5) mas não tiver a flag de credenciado (1),
-  // então está "Em Análise" (7)
+  // então está "Cred. Pendente" (7)
   if (lead.funil_app === 5 && lead.credenciado !== 1) {
-    return 9;
+    return 7;
   }
 
   return lead.funil_app || 1;

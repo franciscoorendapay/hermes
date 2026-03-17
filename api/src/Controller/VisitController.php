@@ -80,6 +80,7 @@ class VisitController extends AbstractController
         $visit->setObservacao($data['observacao'] ?? null);
         $visit->setLat($data['lat'] ?? null);
         $visit->setLng($data['lng'] ?? null);
+        $visit->setEnderecoVisita($data['endereco_visita'] ?? null);
         
         $visitDate = isset($data['data_visita']) ? new \DateTime($data['data_visita']) : new \DateTime();
         $visit->setDataVisita($visitDate);
@@ -146,6 +147,10 @@ class VisitController extends AbstractController
 
         if (isset($data['lng'])) {
             $visit->setLng($data['lng']);
+        }
+
+        if (isset($data['endereco_visita'])) {
+            $visit->setEnderecoVisita($data['endereco_visita']);
         }
 
         if (isset($data['data_visita'])) {

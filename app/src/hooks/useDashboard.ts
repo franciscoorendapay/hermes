@@ -14,7 +14,7 @@ export interface DashboardStats {
 import { useAuth } from "@/hooks/useAuth";
 
 export function useDashboard(enabled: boolean = true) {
-  const { effectiveUser } = useAuth();
+  const { effectiveUser, isAuthenticated } = useAuth();
 
   return useQuery({
     queryKey: ['dashboard-stats', effectiveUser?.id],
@@ -30,7 +30,7 @@ export function useDashboard(enabled: boolean = true) {
         latestLeads: (data.latestLeads || []).map(adaptLeadApiToApp)
       } as DashboardStats;
     },
-    enabled,
+    enabled: enabled && isAuthenticated && !!effectiveUser?.id,
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
 }

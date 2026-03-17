@@ -34,7 +34,7 @@ export function FunilOverviewCard({ data, isLoading = false }: FunilOverviewCard
   const total = Object.values(data).reduce((acc, val) => acc + val, 0);
 
   // Preparar dados ordenados por etapa do funil (ordem de vendas)
-  const stages = FUNIL.filter(stage => [1, 2, 3, 4, 7, 5].includes(stage.id)).map(stage => ({
+  const stages = FUNIL.map(stage => ({
     id: stage.id,
     label: stage.label,
     value: data[stage.id] || 0,

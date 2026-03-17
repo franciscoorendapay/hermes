@@ -34,6 +34,7 @@ interface AddVisitDialogProps {
   selectedDate: Date;
   onSave: (estabelecimentoData: EstabelecimentoData, date: string, time: string, description?: string) => Promise<{ success: boolean }>;
   onSaveWithLead: (leadId: string, date: string, time: string, description?: string) => Promise<{ success: boolean }>;
+  initialPlace?: PlaceResult | null;
 }
 
 const timeSlots = [
@@ -58,6 +59,7 @@ export function AddVisitDialog({
   selectedDate,
   onSave,
   onSaveWithLead,
+  initialPlace = null,
 }: AddVisitDialogProps) {
   const [date, setDate] = useState<Date>(selectedDate);
   const [time, setTime] = useState("09:00");
@@ -69,7 +71,7 @@ export function AddVisitDialog({
   const DEBOUNCE_MS = 3000; // 3 segundos entre saves
 
   // Search state
-  const [selectedPlace, setSelectedPlace] = useState<PlaceResult | null>(null);
+  const [selectedPlace, setSelectedPlace] = useState<PlaceResult | null>(initialPlace);
 
   // Manual registration state (when search doesn't find)
   const [manualName, setManualName] = useState("");
@@ -82,7 +84,7 @@ export function AddVisitDialog({
   // Reset form when dialog opens
   const handleOpenChange = (newOpen: boolean) => {
     if (newOpen) {
-      setSelectedPlace(null);
+      setSelectedPlace(initialPlace);
       setManualName("");
       setCep("");
       setNumero("");

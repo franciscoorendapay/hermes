@@ -13,6 +13,7 @@ export interface Visit {
   data_visita: string;
   lat: string | null;
   lng: string | null;
+  endereco_visita: string | null;
   observacao: string | null;
   created_at: string;
   updated_at: string;
@@ -25,6 +26,7 @@ export interface VisitCreate {
   data_visita?: string;
   lat?: string | null;
   lng?: string | null;
+  endereco_visita?: string | null;
   observacao?: string | null;
 }
 
@@ -34,6 +36,7 @@ export interface VisitUpdate {
   data_visita?: string;
   lat?: string | null;
   lng?: string | null;
+  endereco_visita?: string | null;
   observacao?: string | null;
 }
 

@@ -199,9 +199,18 @@ class AccreditationService
                 throw new \Exception($msg);
             }
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             $this->logger->error("Erro no credenciamento: " . $e->getMessage());
-            $accreditation->setRejectionReason($e->getMessage());
+            $accreditation->setStatus('failed');
+            $accreditation->setRejectionReason("Submission error: " . $e->getMessage());
+            
+            // Revert Lead status to 'Credenciamento Pendente' (7) on error
+            $lead = $accreditation->getLead();
+            if ($lead) {
+                $lead->setAppFunnel(7);
+                $this->em->persist($lead);
+            }
+
             $this->em->persist($accreditation);
             $this->em->flush();
             
@@ -241,6 +250,7 @@ class AccreditationService
                     }
 
                     if (file_exists($path)) {
+                        $this->logger->info("Resolving file resolution for $key. Path: $path");
                         $content = file_get_contents($path);
                         if ($content !== false) {
                             $files[$key] = base64_encode($content);
@@ -263,7 +273,7 @@ class AccreditationService
                              $files[$key] = null;
                         }
                     }
-                } catch (\Exception $e) {
+                } catch (\Throwable $e) {
                     $this->logger->warning("Could not fetch file $url: " . $e->getMessage());
                     $files[$key] = null;
                 }
@@ -358,7 +368,7 @@ class AccreditationService
             'neighborhood' => $lead->getNeighborhood() ?? '',
             'city' => $lead->getCity() ?? '',
             'state' => $lead->getState() ?? '',
-            'postal_code' => $lead->getZipCode(), // Only numbers
+            'postal_code' => $this->cleanDocument($lead->getZipCode()), // Only numbers
             'mcc' => $lead->getMcc() ?? 250,
             
             // Banking data
@@ -450,7 +460,7 @@ class AccreditationService
         // Check if file is an image
         try {
             $imageInfo = @getimagesize($sourcePath);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             $this->logger->error("Error getting image size: " . $e->getMessage());
             return file_get_contents($sourcePath);
         }
@@ -572,7 +582,7 @@ class AccreditationService
                 'code' => $response->getStatusCode(),
                 'body' => json_decode($content)
             ];
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             $this->logger->error("API Request Error: " . $e->getMessage());
             throw $e;
         }
@@ -672,7 +682,7 @@ class AccreditationService
                 return 'error';
             }
 
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             $this->logger->error("Exception checking status: " . $e->getMessage());
             return 'error';
         }

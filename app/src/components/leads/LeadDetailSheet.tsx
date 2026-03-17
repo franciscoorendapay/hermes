@@ -124,13 +124,7 @@ const InfoField = ({ label, value, className = "" }: InfoFieldProps) => (
   </div>
 );
 
-interface Visita {
-  id: string;
-  data_visita: string;
-  tipo: string;
-  status: string;
-  observacao: string | null;
-}
+import { type Visit } from "@/features/visits/visits.types";
 
 interface OrdemServico {
   id: string;
@@ -148,7 +142,7 @@ export function LeadDetailSheet({
   onContinuarCadastro,
   onEditar,
 }: LeadDetailSheetProps) {
-  const [visitas, setVisitas] = useState<Visita[]>([]);
+  const [visitas, setVisitas] = useState<Visit[]>([]);
   const [loadingVisitas, setLoadingVisitas] = useState(false);
 
   // Estados para ordens de serviço
@@ -509,7 +503,7 @@ export function LeadDetailSheet({
                     <div className="grid grid-cols-2 gap-4">
                       <InfoField
                         label="TPV Informado"
-                        value={lead.tpv ? formatMoney(lead.tpv) : "-"}
+                        value={lead.tpv ? formatMoney(Number(lead.tpv)) : "-"}
                       />
                       <InfoField
                         label="Segmento"
@@ -761,16 +755,27 @@ export function LeadDetailSheet({
                                 <div className="flex items-center gap-2">
                                   <Calendar className="h-4 w-4 text-muted-foreground" />
                                   <span className="text-sm font-medium">
-                                    {format(new Date(visita.data_visita), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                                    {format(new Date(visita.data_visita || visita.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
                                   </span>
                                 </div>
                                 <Badge variant="outline" className="text-xs capitalize">
                                   {visita.status}
                                 </Badge>
                               </div>
-                              <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
-                                <MapPin className="h-3 w-3" />
-                                <span className="capitalize">{visita.tipo.replace(/_/g, ' ')}</span>
+                              <div className="mt-2 text-sm">
+                                <div className="flex items-start gap-2">
+                                  <MapPin className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+                                  <div className="flex-1">
+                                    <p className="font-semibold text-foreground leading-snug">
+                                      {visita.endereco_visita && !visita.endereco_visita.startsWith('Erro:') 
+                                        ? visita.endereco_visita 
+                                        : (visita.lat ? `Coord: ${parseFloat(visita.lat).toFixed(4)}, ${parseFloat(visita.lng || '0').toFixed(4)}` : 'Local não registrado')}
+                                    </p>
+                                    <p className="text-xs text-muted-foreground capitalize mt-0.5">
+                                      {visita.endereco_visita?.startsWith('Erro:') ? visita.endereco_visita : (visita.tipo || '').replace(/_/g, ' ')}
+                                    </p>
+                                  </div>
+                                </div>
                               </div>
                               {visita.observacao && (
                                 <p className="text-sm text-foreground mt-2 line-clamp-2">

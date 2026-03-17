@@ -60,8 +60,12 @@ class Visit
     private ?\DateTimeInterface $created_at = null;
 
     #[ORM\Column(type: Types::DATETIME_MUTABLE)]
-    #[Groups(['visit: read'])]
+    #[Groups(['visit:read'])]
     private ?\DateTimeInterface $updated_at = null;
+
+    #[ORM\Column(type: Types::TEXT, nullable: true)]
+    #[Groups(['visit:read', 'visit:write'])]
+    private ?string $endereco_visita = null;
 
     public function __construct()
     {
@@ -190,6 +194,18 @@ class Visit
     public function setUpdatedAt(\DateTimeInterface $updated_at): static
     {
         $this->updated_at = $updated_at;
+
+        return $this;
+    }
+
+    public function getEnderecoVisita(): ?string
+    {
+        return $this->endereco_visita;
+    }
+
+    public function setEnderecoVisita(?string $endereco_visita): static
+    {
+        $this->endereco_visita = $endereco_visita;
 
         return $this;
     }

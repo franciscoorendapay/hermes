@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Search, X, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 
 export interface PlaceResult {
   name: string;
@@ -37,10 +38,11 @@ export function PlacesSearch({ onPlaceSelect, placeholder = "Buscar estabelecime
   const extractAddressComponents = useCallback((components: any[] | undefined) => {
     if (!components) return undefined;
 
-    // Helper for Google Places API (New) response
-    // components is array of { longText, shortText, types: string[], languageCode }
+   
     const getComponent = (types: string[]) =>
-      components.find(c => types.some((t: string) => c.types.includes(t)))?.longText;
+      components.find(
+        (c) => Array.isArray(c.types) && types.some((t: string) => c.types.includes(t))
+      )?.longText;
 
     const getShortComponent = (types: string[]) =>
       components.find(c => types.some((t: string) => c.types.includes(t)))?.shortText;
@@ -85,26 +87,46 @@ export function PlacesSearch({ onPlaceSelect, placeholder = "Buscar estabelecime
     try {
       // Prediction place_id from v1 is "places/ChIJ..." usually, but check
       const placeId = prediction.place_id;
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/places/details?placeId=${placeId}&sessionToken=${sessionToken}`);
+      // Use the same base URL pattern as autocomplete to avoid double /api
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL || "http://localhost:8000/api"}/places/details?placeId=${placeId}&sessionToken=${sessionToken}`
+      );
 
-      if (response.ok) {
-        const place = await response.json();
-
-        const placeResult: PlaceResult = {
-          name: place.displayName?.text || "",
-          address: place.formattedAddress || "",
-          lat: place.location?.latitude || 0,
-          lng: place.location?.longitude || 0,
-          placeId: place.name || place.id || "", // place.name is resource name in v1
-          phone: place.nationalPhoneNumber,
-          types: place.types,
-          addressComponents: extractAddressComponents(place.addressComponents),
-        };
-
-        onPlaceSelect(placeResult);
+      if (!response.ok) {
+        toast.error("Não foi possível carregar os detalhes do estabelecimento. Tente novamente.");
+        console.error("Erro ao buscar detalhes do lugar:", response.status, response.statusText);
+        return;
       }
+
+      const place = await response.json();
+
+      // Normaliza para funcionar tanto com Places API v1 quanto com respostas anteriores
+      const lat =
+        place.location?.latitude ??
+        place.geometry?.location?.lat ??
+        0;
+
+      const lng =
+        place.location?.longitude ??
+        place.geometry?.location?.lng ??
+        0;
+
+      const placeResult: PlaceResult = {
+        name: place.displayName?.text || place.name || "",
+        address: place.formattedAddress || "",
+        lat,
+        lng,
+        placeId: place.id || place.name || placeId,
+        phone: place.nationalPhoneNumber,
+        types: place.types,
+        addressComponents: extractAddressComponents(place.addressComponents),
+      };
+
+      console.log("Place selecionado para zoom:", placeResult);
+      onPlaceSelect(placeResult);
     } catch (error) {
       console.error("Error details:", error);
+      toast.error("Erro ao carregar detalhes do estabelecimento.");
     }
   };
 

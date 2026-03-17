@@ -94,4 +94,28 @@ class LeadRepository extends ServiceEntityRepository
             'latestLeads' => $latestLeads
         ];
     }
+
+    public function findPaginated(array $criteria, int $page = 1, int $limit = 10)
+{
+    $qb = $this->createQueryBuilder('l')
+        ->where('l.user = :user')
+        ->setParameter('user', $criteria['user']);
+
+    $total = count($qb->getQuery()->getResult());
+
+    $leads = $qb->setFirstResult(($page - 1) * $limit)
+                ->setMaxResults($limit)
+                ->orderBy('l.id', 'DESC')
+                ->getQuery()
+                ->getResult();
+
+    return [
+        'leads' => $leads,
+        'meta' => [
+            'total' => $total,
+            'page' => $page,
+            'last_page' => ceil($total / $limit)
+        ]
+    ];
+}
 }

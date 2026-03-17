@@ -23,8 +23,9 @@ class Lead
     #[Groups(['lead:read'])]
     private ?User $user = null;
 
-    #[ORM\Column(length: 255)]
+    #[ORM\Column(length: 255, nullable: false)]
     #[Groups(['lead:read', 'lead:write', 'accreditation:read'])]
+    #[Assert\NotNull(message: 'Name cannot be null')]
     private ?string $name = null;
 
     #[ORM\Column(nullable: true)]

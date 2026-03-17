@@ -1,4 +1,4 @@
-﻿import {
+import {
   Sheet,
   SheetContent,
   SheetDescription,
@@ -75,7 +75,7 @@ import { LeadDetailSheet } from "@/components/leads/LeadDetailSheet";
 import type { Lead } from "@/hooks/useLeads";
 import { toast } from "sonner";
 import { FUNIL } from "@/constants/funil";
-import type { PlaceResult } from "@/components/routes/PlacesSearch";
+import { PlacesSearch, type PlaceResult } from "@/components/routes/PlacesSearch";
 import { formatPhone, formatCpfCnpjInput, formatMoneyInput, parseMoneyInput } from "@/lib/formatters";
 import { validateCpfCnpj, validatePhone } from "@/lib/validators";
 import { useGeolocation, calculateDistance } from "@/hooks/useGeolocation";
@@ -87,6 +87,7 @@ import { ReminderForm } from "@/components/routes/ReminderForm";
 import { useAuth } from "@/hooks/useAuth";
 import { useReminders } from "@/hooks/useReminders";
 import { leadsService } from "@/features/leads/leads.service";
+import { api } from "@/shared/api/http";
 import { visitsService } from "@/features/visits/visits.service";
 import { adaptAppToLeadApi, adaptLeadApiToApp } from "@/features/leads/leads.adapter";
 import { PercentageInput } from "@/components/ui/percentage-input";
@@ -840,6 +841,10 @@ export function LaunchVisitSheet({
       toast.error("Preencha o Nome Fantasia");
       return false;
     }
+    if (nomeFantasia.trim().length < 10) {
+      toast.error("O Nome Fantasia deve ter no mínimo 10 caracteres");
+      return false;
+    }
     // Validação de endereço estruturado
     if (!enderecoRua.trim()) {
       toast.error("Preencha a Rua/Logradouro");
@@ -1145,19 +1150,89 @@ export function LaunchVisitSheet({
     }
   };
 
+  const reverseGeocode = async (lat: number, lng: number) => {
+    try {
+      console.log(`[ReverseGeocode] baseURL: ${api.defaults.baseURL}`);
+      console.log(`[ReverseGeocode] Chamando backend para ${lat},${lng}`);
+      const response = await api.get(`/geocode/reverse?lat=${lat}&lng=${lng}`);
+      const data = response.data;
+      
+      console.log(`[ReverseGeocode] Resposta:`, data);
+
+      if (data.display_name) {
+        return data.display_name;
+      }
+      
+      return "Endereço não identificado";
+    } catch (error: any) {
+      console.error("Erro no reverse geocoding via backend:", error);
+      // Se for um erro do axios, tenta pegar a mensagem do body
+      const serverMsg = error.response?.data?.display_name || error.response?.data?.error;
+      return serverMsg ? `Erro: ${serverMsg}` : null;
+    }
+  };
+
   const registerVisitLog = async (leadId: string, tipo: string, status: string, obs?: string) => {
     try {
-      await visitsService.createVisit({
+      console.log("[VisitLog] Iniciando registro de visita...", { leadId, tipo });
+      const tId = toast.loading("Capturando sua geolocalização exata...");
+      
+      // Função auxiliar para pegar a posição atual como Promise
+      const getFreshLocation = () => new Promise<GeolocationPosition | null>((resolve) => {
+        if (!navigator.geolocation) {
+          console.warn("[VisitLog] Geolocation não suportada");
+          resolve(null);
+          return;
+        }
+        navigator.geolocation.getCurrentPosition(
+          (pos) => resolve(pos),
+          (err) => {
+            console.warn("[VisitLog] Erro ao obter posição:", err.message);
+            resolve(null);
+          },
+          { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+        );
+      });
+
+      const position = await getFreshLocation();
+      let finalLat = position?.coords.latitude ? String(position.coords.latitude) : (placeLat || undefined);
+      let finalLng = position?.coords.longitude ? String(position.coords.longitude) : (placeLng || undefined);
+      
+      let enderecoVisita = null;
+
+      if (finalLat && finalLng) {
+        toast.info("📍 Localização capturada! Buscando endereço...", { id: tId });
+        console.log("[VisitLog] Buscando endereço para:", finalLat, finalLng);
+        enderecoVisita = await reverseGeocode(parseFloat(finalLat), parseFloat(finalLng));
+        console.log("[VisitLog] Endereço final:", enderecoVisita);
+        
+        if (enderecoVisita) {
+          toast.success(`Endereço: ${enderecoVisita.split(',')[0]}`, { id: tId, duration: 4000 });
+        } else {
+          toast.warning("Não foi possível converter as coordenadas em endereço.", { id: tId });
+        }
+      } else {
+        console.warn("[VisitLog] Sem coordenadas para geocoding");
+        toast.error("Erro: GPS não disponível. Certifique-se de que a localização está ativa.", { id: tId });
+      }
+
+      const visitData = {
         lead_id: leadId,
         tipo: tipo,
         status: status,
-        lat: placeLat || undefined,
-        lng: placeLng || undefined,
+        lat: finalLat,
+        lng: finalLng,
+        endereco_visita: enderecoVisita,
         observacao: obs || observacao || undefined,
         data_visita: new Date().toISOString()
-      });
+      };
+
+      console.log("[VisitLog] Salvando visita...", visitData);
+      await visitsService.createVisit(visitData);
+      console.log("[VisitLog] Visita salva com sucesso!");
     } catch (e) {
-      console.error("Erro ao registrar visita no histórico:", e);
+      console.error("[VisitLog] Erro fatal no registro:", e);
+      toast.error("Erro ao registrar no histórico de visitas.");
     }
   };
 
@@ -1166,7 +1241,8 @@ export function LaunchVisitSheet({
 
     try {
       // Upsert at current step (Stage 1) before moving to next
-      await upsertLead(1);
+      const result = await upsertLead(1);
+      await registerVisitLog(String(result.id), "prospeccao", "concluida", "Prosseguiu para qualificação");
       setStep("qualificacao");
     } catch (e) {
       // toast already shown in upsertLead
@@ -1178,7 +1254,8 @@ export function LaunchVisitSheet({
     if (!validateQualificacaoFields()) return;
 
     try {
-      await upsertLead(2);
+      const result = await upsertLead(2);
+      await registerVisitLog(String(result.id), "qualificacao", "concluida", "Prosseguiu para negociação");
       setStep("negociacao");
     } catch (e) { }
   };
@@ -1189,7 +1266,8 @@ export function LaunchVisitSheet({
     if (!validateNegociacaoFields()) return;
 
     try {
-      await upsertLead(3);
+      const result = await upsertLead(3);
+      await registerVisitLog(String(result.id), "negociacao", "concluida", "Prosseguiu para precificação");
       setStep("precificacao");
     } catch (e) { }
   };
@@ -1520,10 +1598,6 @@ export function LaunchVisitSheet({
       toast.error("Selecione um lead");
       return;
     }
-    if (!novaFase) {
-      toast.error("Selecione a nova fase do funil");
-      return;
-    }
 
     checkLocationAndSubmit(async () => {
       setLoading(true);
@@ -1539,25 +1613,27 @@ export function LaunchVisitSheet({
         const leadSelecionado = leadToUse || leads.find(l => l.id === leadId);
 
         if (leadSelecionado) {
-          // Atualizar fase do lead via API
-          const updateData = {
-            funil_app: parseInt(novaFase),
-            // We might want to update other fields if they were edited in the return form? 
-            // The return form usually just asks for new phase?
-            // "Return Visit" form usually has inputs. 
-            // LaunchVisitSheet has "novaFase" selector.
-            id: leadSelecionado.id
-          };
+          // Atualizar fase do lead via API apenas se selecionada
+          if (novaFase) {
+            const updateData = {
+              funil_app: parseInt(novaFase),
+              id: leadSelecionado.id
+            };
 
-          const apiData = adaptAppToLeadApi(updateData as any);
-          await leadsService.update(leadSelecionado.id, apiData);
+            const apiData = adaptAppToLeadApi(updateData as any);
+            await leadsService.update(leadSelecionado.id, apiData);
+          }
+          
           await registerVisitLog(leadSelecionado.id, "retorno", "concluida");
         }
 
-        const faseSelecionada = FUNIL.find(f => f.id.toString() === novaFase);
+        const faseSelecionada = novaFase ? FUNIL.find(f => f.id.toString() === novaFase) : null;
+        const msgSucesso = faseSelecionada 
+          ? `Lead: ${leadSelecionado?.nome_fantasia} - Fase: ${faseSelecionada.label}`
+          : `Visita registrada para: ${leadSelecionado?.nome_fantasia}`;
 
         toast.success("Visita registrada com sucesso!", {
-          description: `Lead: ${leadSelecionado?.nome_fantasia} - Fase: ${faseSelecionada?.label}`
+          description: msgSucesso
         });
         onLeadSaved?.();
       } catch (error) {
@@ -1702,6 +1778,36 @@ export function LaunchVisitSheet({
         <span className="text-xs text-blue-500 ml-auto">(status inicial)</span>
       </div>
 
+      {/* Buscar no Google e Mapa */}
+      <div className="space-y-4">
+        <div className="space-y-2">
+          <Label>Procurar Estabelecimento no Google</Label>
+          <PlacesSearch
+            onPlaceSelect={handlePlaceSelect}
+            placeholder="Digite o nome do local..."
+          />
+        </div>
+
+        {placeLat && placeLng && (
+          <div className="w-full h-48 rounded-md overflow-hidden border border-border mt-2">
+            <iframe
+              width="100%"
+              height="100%"
+              style={{ border: 0 }}
+              loading="lazy"
+              allowFullScreen
+              src={`https://www.google.com/maps?q=${placeLat},${placeLng}&hl=pt-BR&z=15&output=embed`}
+            />
+          </div>
+        )}
+
+        <div className="flex items-center">
+          <div className="h-px flex-1 bg-border" />
+          <span className="px-3 text-xs text-muted-foreground">ou preencha manualmente</span>
+          <div className="h-px flex-1 bg-border" />
+        </div>
+      </div>
+
       {/* Nome Fantasia */}
       <div className="space-y-2">
         <Label htmlFor="nomeFantasia">Nome Fantasia *</Label>
@@ -1729,7 +1835,7 @@ export function LaunchVisitSheet({
         </div>
 
         {/* Se já tem endereço e não está editando tudo, mostra resumo + numero/complem */}
-        {enderecoRua && !isEditingAddress ? (
+        {enderecoRua && !isEditingAddress && enderecoOrigem !== "manual" ? (
           <>
             <div className="space-y-4">
               <div className="p-4 bg-muted/30 rounded-lg border border-border">
@@ -1824,7 +1930,10 @@ export function LaunchVisitSheet({
                 <Input
                   id="enderecoRua"
                   value={enderecoRua}
-                  onChange={(e) => setEnderecoRua(e.target.value)}
+                  onChange={(e) => {
+                    setEnderecoRua(e.target.value);
+                    setEnderecoOrigem("manual");
+                  }}
                   placeholder="Av. Paulista"
                 />
               </div>
@@ -1846,7 +1955,10 @@ export function LaunchVisitSheet({
                 <Input
                   id="enderecoBairro"
                   value={enderecoBairro}
-                  onChange={(e) => setEnderecoBairro(e.target.value)}
+                  onChange={(e) => {
+                    setEnderecoBairro(e.target.value);
+                    setEnderecoOrigem("manual");
+                  }}
                   placeholder="Centro"
                 />
               </div>
@@ -1877,7 +1989,10 @@ export function LaunchVisitSheet({
                 <Input
                   id="enderecoCidade"
                   value={enderecoCidade}
-                  onChange={(e) => setEnderecoCidade(e.target.value)}
+                  onChange={(e) => {
+                    setEnderecoCidade(e.target.value);
+                    setEnderecoOrigem("manual");
+                  }}
                   placeholder="São Paulo"
                 />
               </div>
@@ -1886,7 +2001,10 @@ export function LaunchVisitSheet({
                 <Input
                   id="enderecoEstado"
                   value={enderecoEstado}
-                  onChange={(e) => setEnderecoEstado(e.target.value)}
+                  onChange={(e) => {
+                    setEnderecoEstado(e.target.value);
+                    setEnderecoOrigem("manual");
+                  }}
                   placeholder="SP"
                   maxLength={2}
                 />
@@ -2792,7 +2910,7 @@ export function LaunchVisitSheet({
                   </div>
 
                   {/* Nova Fase (opcional para registro simples) */}
-                  <div className="space-y-2">
+                  {/* <div className="space-y-2">
                     <Label htmlFor="novaFase">Atualizar fase (opcional)</Label>
                     <Select value={novaFase} onValueChange={setNovaFase}>
                       <SelectTrigger id="novaFase">
@@ -2810,13 +2928,13 @@ export function LaunchVisitSheet({
                         ))}
                       </SelectContent>
                     </Select>
-                  </div>
+                  </div> */}
 
                   <Button
                     className="w-full"
                     variant="outline"
                     onClick={handleReturnSubmit}
-                    disabled={loading || !novaFase}
+                    disabled={loading}
                   >
                     {loading ? "Salvando..." : "Registrar Visita Simples"}
                   </Button>
@@ -2915,6 +3033,7 @@ export function LaunchVisitSheet({
       onSuccess={() => onLeadSaved?.()}
       onClose={() => onOpenChange(false)}
       directToDocuments={directAction === "finalizar_credenciamento"}
+      onRegisterVisit={registerVisitLog}
     />
   );
 

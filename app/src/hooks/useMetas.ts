@@ -15,7 +15,7 @@ export interface Metas {
 }
 
 export function useMetas(enabled: boolean = false) {
-  const { effectiveUser: user } = useAuth(); // Use effectiveUser instead of logged in user
+  const { effectiveUser: user, isAuthenticated } = useAuth(); // Use effectiveUser instead of logged in user
 
   return useQuery({
     queryKey: ['metas', user?.id],
@@ -53,7 +53,7 @@ export function useMetas(enabled: boolean = false) {
         atingido_valor: 0, // Placeholder
       } as Metas;
     },
-    enabled: enabled && !!user?.id,
+    enabled: enabled && isAuthenticated && !!user?.id,
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
 }
