@@ -290,16 +290,6 @@ class AccreditationService
         return preg_replace('/[^0-9]/', '', $doc);
     }
     
-    private function formatCep(?string $cep): string
-    {
-        if (!$cep) return '';
-        $cleanCep = preg_replace('/[^0-9]/', '', $cep);
-        if (strlen($cleanCep) === 8) {
-            return substr($cleanCep, 0, 5) . '-' . substr($cleanCep, 5, 3);
-        }
-        return $cep;
-    }
-
     private function formatPhone($phone) {
         // Clean phone first
         $cleaned = $this->cleanDocument($phone);
