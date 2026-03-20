@@ -81,10 +81,17 @@ class LeadController extends AbstractController
     public function show(string $id, LeadRepository $leadRepository): JsonResponse
     {
         $user = $this->getUser();
-        $lead = $leadRepository->findOneBy(['id' => $id, 'user' => $user]);
+        $lead = $leadRepository->find($id);
 
         if (!$lead) {
-            return $this->json(['error' => 'Lead not found or access denied'], Response::HTTP_NOT_FOUND);
+            return $this->json(['error' => 'Lead not found'], Response::HTTP_NOT_FOUND);
+        }
+
+        $userRole = $user instanceof User ? $user->getRole() : '';
+        $hasAccess = ($lead->getUser() === $user) || in_array($userRole, ['admin', 'diretor', 'nacional', 'regional', 'manager']);
+
+        if (!$hasAccess) {
+            return $this->json(['error' => 'Access denied'], Response::HTTP_FORBIDDEN);
         }
 
         return $this->json($lead, Response::HTTP_OK, [], ['groups' => 'lead:read']);
@@ -137,10 +144,17 @@ class LeadController extends AbstractController
         EntityManagerInterface $entityManager
     ): JsonResponse {
         $user = $this->getUser();
-        $lead = $leadRepository->findOneBy(['id' => $id, 'user' => $user]);
+        $lead = $leadRepository->find($id);
 
         if (!$lead) {
-            return $this->json(['error' => 'Lead not found or access denied'], Response::HTTP_NOT_FOUND);
+            return $this->json(['error' => 'Lead not found'], Response::HTTP_NOT_FOUND);
+        }
+
+        $userRole = $user instanceof User ? $user->getRole() : '';
+        $hasAccess = ($lead->getUser() === $user) || in_array($userRole, ['admin', 'diretor', 'nacional', 'regional', 'manager']);
+
+        if (!$hasAccess) {
+            return $this->json(['error' => 'Access denied'], Response::HTTP_FORBIDDEN);
         }
 
         try {
@@ -171,10 +185,17 @@ class LeadController extends AbstractController
     public function delete(string $id, LeadRepository $leadRepository, EntityManagerInterface $entityManager): JsonResponse
     {
         $user = $this->getUser();
-        $lead = $leadRepository->findOneBy(['id' => $id, 'user' => $user]);
+        $lead = $leadRepository->find($id);
 
         if (!$lead) {
-            return $this->json(['error' => 'Lead not found or access denied'], Response::HTTP_NOT_FOUND);
+            return $this->json(['error' => 'Lead not found'], Response::HTTP_NOT_FOUND);
+        }
+
+        $userRole = $user instanceof User ? $user->getRole() : '';
+        $hasAccess = ($lead->getUser() === $user) || in_array($userRole, ['admin', 'diretor', 'nacional', 'regional', 'manager']);
+
+        if (!$hasAccess) {
+            return $this->json(['error' => 'Access denied'], Response::HTTP_FORBIDDEN);
         }
 
         $entityManager->remove($lead);

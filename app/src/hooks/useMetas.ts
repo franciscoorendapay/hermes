@@ -52,7 +52,7 @@ export function useMetas(enabled: boolean = false) {
         meta_valor: parseFloat(myGoal.meta_valor || '0'),
         meta_visitas: myGoal.meta_visitas || 0,
         atingido_clientes: stats.novosClientes || 0,
-        atingido_valor: parseFloat(stats.tpvPrometido || '0'),
+        atingido_valor: parseFloat(stats.tpvNovosClientes || '0'),
       } as Metas;
     },
     enabled: enabled && isAuthenticated && !!user?.id,

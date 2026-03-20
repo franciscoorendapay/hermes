@@ -38,7 +38,7 @@ class LeadRepository extends ServiceEntityRepository
                 ->select('SUM(l.tpv)')
                 ->join('App\Entity\Accreditation', 'a', 'WITH', 'a.lead = l')
                 ->where('l.user = :user')
-                ->andWhere('l.appFunnel = 4')
+                ->andWhere('l.accreditation = 1')
                 ->andWhere('a.createdAt >= :startOfMonth')
                 ->andWhere('a.createdAt <= :endOfMonth')
                 ->setParameter('user', $user)
@@ -55,7 +55,7 @@ class LeadRepository extends ServiceEntityRepository
             $carteiraClientes = $this->createQueryBuilder('l')
                 ->select('COUNT(l.id)')
                 ->where('l.user = :user')
-                ->andWhere('l.appFunnel = 4')
+                ->andWhere('l.accreditation = 1')
                 ->setParameter('user', $user)
                 ->getQuery()
                 ->getSingleScalarResult();
@@ -93,6 +93,24 @@ class LeadRepository extends ServiceEntityRepository
             $novosClientes = 0;
         }
 
+        // TPV Novos Clientes (SUM of TPV for Novos Clientes)
+        try {
+            $tpvNovosClientes = $this->createQueryBuilder('l')
+                ->select('SUM(l.tpv)')
+                ->join('App\Entity\Accreditation', 'a', 'WITH', 'a.lead = l')
+                ->where('l.user = :user')
+                ->andWhere('l.accreditation = 1')
+                ->andWhere('a.createdAt >= :startOfMonth')
+                ->andWhere('a.createdAt <= :endOfMonth')
+                ->setParameter('user', $user)
+                ->setParameter('startOfMonth', $startOfMonth)
+                ->setParameter('endOfMonth', $endOfMonth)
+                ->getQuery()
+                ->getSingleScalarResult();
+        } catch (\Exception $e) {
+            $tpvNovosClientes = 0;
+        }
+
         // Latest Leads (Limit 5)
         $latestLeads = $this->createQueryBuilder('l')
             ->where('l.user = :user')
@@ -107,6 +125,7 @@ class LeadRepository extends ServiceEntityRepository
             'carteiraClientes' => (int) $carteiraClientes,
             'tpvTotal' => (float) $tpvTotal,
             'novosClientes' => (int) $novosClientes,
+            'tpvNovosClientes' => (float) $tpvNovosClientes,
             'latestLeads' => $latestLeads
         ];
     }

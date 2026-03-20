@@ -9,7 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { useSubordinates, Subordinate } from '@/hooks/useSubordinates';
-import { supabase } from '@/integrations/supabase/client';
+import { http } from '@/shared/api/http';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserRole } from '@/hooks/useUserRole';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Cell, PieChart, Pie, Legend } from 'recharts';
@@ -66,19 +66,17 @@ export default function GestaoRelatorios() {
       try {
         const userIds = subordinates.map(s => s.id);
         
-        // Fetch leads data
-        const { data: leadsData } = await supabase
-          .from('leads')
-          .select('user_id, funil_app, credenciado, tpv')
-          .in('user_id', userIds);
+        // Fetch leads data from local API
+        const leadsResponse = await http.get('/leads', {
+          params: { user_ids: userIds.join(',') }
+        });
+        const leadsData: any[] = Array.isArray(leadsResponse.data) ? leadsResponse.data : (leadsResponse.data?.leads || []);
 
-        // Fetch metas data for current month
-        const { data: metasData } = await supabase
-          .from('metas')
-          .select('*')
-          .in('user_id', userIds)
-          .eq('mes', mes)
-          .eq('ano', ano);
+        // Fetch metas data for current month from local API
+        const metasResponse = await http.get('/goals', {
+          params: { mes, ano }
+        });
+        const metasData: any[] = Array.isArray(metasResponse.data) ? metasResponse.data : [];
 
         // Process leads by user
         const leadsMap: Record<string, LeadsByUser> = {};
@@ -93,14 +91,15 @@ export default function GestaoRelatorios() {
           };
         });
 
-        leadsData?.forEach(lead => {
-          if (leadsMap[lead.user_id]) {
-            leadsMap[lead.user_id].total++;
-            const funil = lead.funil_app || 1;
-            leadsMap[lead.user_id].byFunil[funil] = (leadsMap[lead.user_id].byFunil[funil] || 0) + 1;
-            if (lead.credenciado === 1) {
-              leadsMap[lead.user_id].credenciados++;
-              leadsMap[lead.user_id].tpvTotal += Number(lead.tpv) || 0;
+        leadsData?.forEach((lead: any) => {
+          const leadUserId = lead.user?.id || lead.user_id;
+          if (leadUserId && leadsMap[leadUserId]) {
+            leadsMap[leadUserId].total++;
+            const funil = lead.appFunnel || lead.funil_app || 1;
+            leadsMap[leadUserId].byFunil[funil] = (leadsMap[leadUserId].byFunil[funil] || 0) + 1;
+            if (lead.accreditation === 1 || lead.credenciado === 1) {
+              leadsMap[leadUserId].credenciados++;
+              leadsMap[leadUserId].tpvTotal += Number(lead.tpv) || 0;
             }
           }
         });
@@ -110,7 +109,10 @@ export default function GestaoRelatorios() {
         // Process faturamento by user
         const faturamentoMap: Record<string, FaturamentoByUser> = {};
         subordinates.forEach(sub => {
-          const meta = metasData?.find(m => m.user_id === sub.id);
+          const meta = metasData?.find((m: any) => {
+            const metaUserId = m.user?.id || m.user_id;
+            return metaUserId === sub.id;
+          });
           const leads = leadsMap[sub.id];
           
           const metaClientes = meta?.meta_clientes || 0;
@@ -398,8 +400,8 @@ export default function GestaoRelatorios() {
                       <XAxis type="number" tickFormatter={(v) => `R$ ${(v / 1000).toFixed(0)}k`} />
                       <YAxis dataKey="name" type="category" width={80} tick={{ fontSize: 12 }} />
                       <Tooltip formatter={(value: number) => formatCurrency(value)} />
-                      <Bar dataKey="tpv" name="TPV Realizado" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
-                      <Bar dataKey="meta" name="Meta" fill="hsl(var(--muted))" radius={[0, 4, 4, 0]} />
+                      <Bar dataKey="tpv" name="TPV Realizado" fill="#F58320" radius={[0, 4, 4, 0]} />
+                      <Bar dataKey="meta" name="Meta" fill="#3b82f6" radius={[0, 4, 4, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
