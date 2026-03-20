@@ -370,7 +370,7 @@ export function LeadDetailSheet({
   const proximaAcao = getProximaAcao(lead.funil_app);
   const isCliente = lead.funil_app === 5;
   const isCredenciado = lead.funil_app === 5 && lead.credenciado === 1;
-  const isEmAnalise = lead.funil_app === 9; // Status "em análise"
+  const isEmAnalise = lead.funil_app === 7; // Status "em análise"
   const avatarColor = AVATAR_COLORS[funilId] || "bg-gray-500";
 
   const formatTaxa = (value: number | null | undefined): string => {
