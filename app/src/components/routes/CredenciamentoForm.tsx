@@ -561,7 +561,7 @@ export function CredenciamentoForm({
         doc: cpfCnpj.replace(/\D/g, ''),
         telefone: telefone.replace(/\D/g, ''),
         email: email,
-        endereco_cep: cep.replace(/\D/g, ''),
+        endereco_cep: cep,
         endereco_logradouro: logradouro,
         endereco_numero: numero,
         endereco_bairro: bairro,

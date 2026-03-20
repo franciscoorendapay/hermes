@@ -279,15 +279,25 @@ class AccreditationService
                     $this->logger->warning("Could not fetch file $url: " . $e->getMessage());
                     $files[$key] = null;
                 }
-            } else {
-                $files[$key] = null;
             }
         }
         return $files;
     }
 
-    private function cleanDocument($doc) {
+    private function cleanDocument(?string $doc): string
+    {
+        if (!$doc) return '';
         return preg_replace('/[^0-9]/', '', $doc);
+    }
+    
+    private function formatCep(?string $cep): string
+    {
+        if (!$cep) return '';
+        $cleanCep = preg_replace('/[^0-9]/', '', $cep);
+        if (strlen($cleanCep) === 8) {
+            return substr($cleanCep, 0, 5) . '-' . substr($cleanCep, 5, 3);
+        }
+        return $cep;
     }
 
     private function formatPhone($phone) {
@@ -370,7 +380,7 @@ class AccreditationService
             'neighborhood' => $lead->getNeighborhood() ?? '',
             'city' => $lead->getCity() ?? '',
             'state' => $lead->getState() ?? '',
-            'postal_code' => $this->cleanDocument($lead->getZipCode()), // Only numbers
+            'postal_code' => $this->formatCep($lead->getZipCode()), // Keep hyphen
             'mcc' => $lead->getMcc() ?? 250,
             
             // Banking data
@@ -420,7 +430,7 @@ class AccreditationService
             $payload['owner_neighborhood'] = $lead->getNeighborhood();
             $payload['owner_city'] = $lead->getCity();
             $payload['owner_state'] = $lead->getState();
-            $payload['owner_postal_code'] = $this->cleanDocument($lead->getZipCode());
+            $payload['owner_postal_code'] = $this->formatCep($lead->getZipCode());
             
             // Files for PJ
             $payload['file1'] = $files['DOCUMENTO_CNPJ']; // Cartão CNPJ
