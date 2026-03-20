@@ -124,7 +124,15 @@ function DocumentUpload({ label, file, existingUrl, onFileChange, required }: Do
             type="file"
             accept=".pdf,.jpg,.jpeg,.png"
             className="hidden"
-            onChange={(e) => onFileChange(e.target.files?.[0] || null)}
+            onChange={(e) => {
+              const selectedFile = e.target.files?.[0] || null;
+              if (selectedFile && selectedFile.size > 3 * 1024 * 1024) {
+                toast.error('Arquivo excede o limite de 3MB');
+                e.target.value = '';
+                return;
+              }
+              onFileChange(selectedFile);
+            }}
           />
           <Button variant="outline" size="sm" asChild>
             <span>{hasFile ? 'Trocar' : 'Selecionar'}</span>
@@ -227,6 +235,7 @@ export function CredenciamentoForm({
   const [docResidenciaUrl, setDocResidenciaUrl] = useState<string | null>(null);
   const [docAtividadeUrl, setDocAtividadeUrl] = useState<string | null>(null);
   const [documentosPendentes, setDocumentosPendentes] = useState(true);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   // Handler para campos de data
   const handleDateChange = (
@@ -655,6 +664,7 @@ export function CredenciamentoForm({
     }
 
     setUploadingDocs(true);
+    setSubmitError(null);
 
     try {
       if (!auth.user) throw new Error("Não autenticado");
@@ -717,8 +727,15 @@ export function CredenciamentoForm({
       });
       onSuccess();
       onClose();
-    } catch (error) {
-      toast.error("Erro ao enviar documentos/análise");
+    } catch (error: any) {
+      // Extract API error message for persistent display
+      const apiErrorMsg = error?.response?.data?.error 
+        || error?.response?.data?.message 
+        || error?.response?.data?.msg
+        || error?.message
+        || 'Erro desconhecido ao enviar documentos/análise';
+
+      setSubmitError(apiErrorMsg);
       console.error(error);
     } finally {
       setUploadingDocs(false);
@@ -1206,6 +1223,22 @@ export function CredenciamentoForm({
               {!isCpfCredenciamento(selectedLead?.doc) && !isCnpjCredenciamento(selectedLead?.doc) && (
                 <div className="text-sm text-amber-600 p-3 bg-amber-50 rounded-lg">
                   ⚠️ CPF/CNPJ não detectado. Por favor, preencha os dados do estabelecimento primeiro.
+                </div>
+              )}
+
+              {submitError && (
+                <div className="flex items-start gap-3 p-4 mt-4 bg-red-50 border border-red-300 rounded-lg">
+                  <AlertTriangle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-semibold text-red-800">Erro no credenciamento</p>
+                    <p className="text-sm text-red-700 mt-1">{submitError}</p>
+                  </div>
+                  <button
+                    onClick={() => setSubmitError(null)}
+                    className="ml-auto text-red-400 hover:text-red-600 flex-shrink-0"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
                 </div>
               )}
 
