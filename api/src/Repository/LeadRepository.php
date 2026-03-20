@@ -26,25 +26,35 @@ class LeadRepository extends ServiceEntityRepository
         $qb->andWhere('l.user = :user')
            ->setParameter('user', $user);
 
-        // TPV Prometido (funil_app = 4)
+        $now = new \DateTimeImmutable();
+        $startOfMonth = clone $now;
+        $startOfMonth = $startOfMonth->modify('first day of this month')->setTime(0, 0, 0);
+        $endOfMonth = clone $now;
+        $endOfMonth = $endOfMonth->modify('last day of this month')->setTime(23, 59, 59);
+
+        // TPV Prometido (accreditation = 1 and in current month)
         try {
             $tpvPrometido = $this->createQueryBuilder('l')
                 ->select('SUM(l.tpv)')
                 ->where('l.user = :user')
-                ->andWhere('l.appFunnel = 4')
+                ->andWhere('l.accreditation = 1')
+                ->andWhere('l.createdAt >= :startOfMonth')
+                ->andWhere('l.createdAt <= :endOfMonth')
                 ->setParameter('user', $user)
+                ->setParameter('startOfMonth', $startOfMonth)
+                ->setParameter('endOfMonth', $endOfMonth)
                 ->getQuery()
                 ->getSingleScalarResult();
         } catch (\Exception $e) {
             $tpvPrometido = 0;
         }
 
-        // Carteira de Clientes (funil_app = 4 count)
+        // Carteira de Clientes (accreditation = 1 count)
         try {
             $carteiraClientes = $this->createQueryBuilder('l')
                 ->select('COUNT(l.id)')
                 ->where('l.user = :user')
-                ->andWhere('l.appFunnel = 4')
+                ->andWhere('l.accreditation = 1')
                 ->setParameter('user', $user)
                 ->getQuery()
                 ->getSingleScalarResult();
@@ -52,11 +62,12 @@ class LeadRepository extends ServiceEntityRepository
             $carteiraClientes = 0;
         }
 
-        // TPV Total
+        // TPV Total (accreditation = 1 sum)
         try {
             $tpvTotal = $this->createQueryBuilder('l')
                 ->select('SUM(l.tpv)')
                 ->where('l.user = :user')
+                ->andWhere('l.accreditation = 1')
                 ->setParameter('user', $user)
                 ->getQuery()
                 ->getSingleScalarResult();
@@ -64,13 +75,17 @@ class LeadRepository extends ServiceEntityRepository
             $tpvTotal = 0;
         }
 
-        // Novos Clientes (credenciado = 1)
+        // Novos Clientes (credenciado = 1 and in current month)
         try {
             $novosClientes = $this->createQueryBuilder('l')
                 ->select('COUNT(l.id)')
                 ->where('l.user = :user')
                 ->andWhere('l.accreditation = 1')
+                ->andWhere('l.createdAt >= :startOfMonth')
+                ->andWhere('l.createdAt <= :endOfMonth')
                 ->setParameter('user', $user)
+                ->setParameter('startOfMonth', $startOfMonth)
+                ->setParameter('endOfMonth', $endOfMonth)
                 ->getQuery()
                 ->getSingleScalarResult();
         } catch (\Exception $e) {

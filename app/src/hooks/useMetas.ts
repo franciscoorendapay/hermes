@@ -38,8 +38,10 @@ export function useMetas(enabled: boolean = false) {
 
       if (!myGoal) return null;
 
-      // TODO: Fetch actual progress (atingido_clientes, atingido_valor) from leads/sales data
-      // For now, we return 0 or mock progress logic, or maybe the backend should eventually return this aggregate.
+      // Fetch progress (atingido_clientes, atingido_valor) from leads/stats
+      const statsUrl = user?.id ? `/leads/stats?user_id=${user.id}` : '/leads/stats';
+      const statsResponse = await http.get(statsUrl);
+      const stats = statsResponse.data || {};
 
       return {
         id: myGoal.id,
@@ -49,8 +51,8 @@ export function useMetas(enabled: boolean = false) {
         meta_clientes: myGoal.meta_clientes || 0,
         meta_valor: parseFloat(myGoal.meta_valor || '0'),
         meta_visitas: myGoal.meta_visitas || 0,
-        atingido_clientes: 0, // Placeholder
-        atingido_valor: 0, // Placeholder
+        atingido_clientes: stats.novosClientes || 0,
+        atingido_valor: parseFloat(stats.tpvPrometido || '0'),
       } as Metas;
     },
     enabled: enabled && isAuthenticated && !!user?.id,
