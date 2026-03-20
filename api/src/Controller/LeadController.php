@@ -25,6 +25,19 @@ class LeadController extends AbstractController
         $user = $this->getUser();
         if (!$user) return $this->json(['error' => 'Unauthenticated'], 401);
 
+        $userIdsParam = $request->query->get('user_ids');
+        
+        if ($userIdsParam) {
+            $userIds = explode(',', $userIdsParam);
+            $qb = $leadRepository->createQueryBuilder('l');
+            $leads = $qb->where('l.user IN (:userIds)')
+                        ->setParameter('userIds', $userIds)
+                        ->orderBy('l.id', 'DESC')
+                        ->getQuery()
+                        ->getResult();
+            
+            return $this->json($leads, Response::HTTP_OK, [], ['groups' => 'lead:read']);
+        }
         
         $page = $request->query->getInt('page', 1);
         $limit = 10; 

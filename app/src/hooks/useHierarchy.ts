@@ -1,11 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { http } from '@/shared/api/http';
 import { useAuth } from './useAuth';
 import { toast } from 'sonner';
 import type { UserRole } from './useUserRole';
 
 interface HierarchyRelation {
-  id: string;
+  id: string | number;
   manager_id: string;
   subordinate_id: string;
   manager_nome: string;
@@ -22,34 +22,8 @@ export function useHierarchy() {
 
     setIsLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('user_hierarchy')
-        .select('id, manager_id, subordinate_id');
-
-      if (error) throw error;
-
-      // Buscar profiles para os nomes
-      const allUserIds = [...new Set([
-        ...(data?.map(h => h.manager_id) || []),
-        ...(data?.map(h => h.subordinate_id) || []),
-      ])];
-
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select('id, nome')
-        .in('id', allUserIds);
-
-      const profilesMap = new Map(profiles?.map(p => [p.id, p.nome]) || []);
-
-      const relations = data?.map(h => ({
-        id: h.id,
-        manager_id: h.manager_id,
-        subordinate_id: h.subordinate_id,
-        manager_nome: profilesMap.get(h.manager_id) || 'Desconhecido',
-        subordinate_nome: profilesMap.get(h.subordinate_id) || 'Desconhecido',
-      })) || [];
-
-      setHierarchy(relations);
+      const { data } = await http.get('/hierarchy');
+      setHierarchy(data || []);
     } catch (err) {
       console.error('Error fetching hierarchy:', err);
       setHierarchy([]);
@@ -64,20 +38,17 @@ export function useHierarchy() {
 
   const addSubordinate = async (managerId: string, subordinateId: string): Promise<boolean> => {
     try {
-      const { error } = await supabase
-        .from('user_hierarchy')
-        .insert({
-          manager_id: managerId,
-          subordinate_id: subordinateId,
-        });
+      await http.post('/hierarchy', {
+        manager_id: managerId,
+        subordinate_id: subordinateId,
+      });
 
-      if (error) throw error;
       toast.success('Subordinado adicionado com sucesso!');
       await fetchHierarchy();
       return true;
     } catch (err: any) {
       console.error('Error adding subordinate:', err);
-      if (err.code === '23505') {
+      if (err.response?.status === 409) {
         toast.error('Este subordinado já está vinculado a este gestor');
       } else {
         toast.error('Erro ao adicionar subordinado');
@@ -86,14 +57,10 @@ export function useHierarchy() {
     }
   };
 
-  const removeSubordinate = async (relationId: string): Promise<boolean> => {
+  const removeSubordinate = async (relationId: string | number): Promise<boolean> => {
     try {
-      const { error } = await supabase
-        .from('user_hierarchy')
-        .delete()
-        .eq('id', relationId);
+      await http.delete(`/hierarchy/${relationId}`);
 
-      if (error) throw error;
       toast.success('Subordinado removido com sucesso!');
       await fetchHierarchy();
       return true;
@@ -106,12 +73,8 @@ export function useHierarchy() {
 
   const updateUserRole = async (userId: string, newRole: UserRole): Promise<boolean> => {
     try {
-      const { error } = await supabase
-        .from('user_roles')
-        .update({ role: newRole })
-        .eq('user_id', userId);
+      await http.put(`/users/${userId}`, { role: newRole });
 
-      if (error) throw error;
       toast.success('Cargo atualizado com sucesso!');
       return true;
     } catch (err) {
@@ -123,3 +86,4 @@ export function useHierarchy() {
 
   return { hierarchy, isLoading, addSubordinate, removeSubordinate, updateUserRole, refetch: fetchHierarchy };
 }
+
