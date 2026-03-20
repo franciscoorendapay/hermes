@@ -134,7 +134,7 @@ class AccreditationService
                     $this->logger->info("Account created successfully. ID: $apiId");
                 } else {
                     $this->logger->error("Error in create account step. Code: " . $response['code']);
-                    $msg = $response['body']->retorno->msg ?? 'Erro desconhecido ao criar conta';
+                    $msg = $response['body']->retorno->msg ?? $response['body']->msg ?? 'Erro desconhecido ao criar conta';
                     throw new \Exception($msg);
                 }
             } else {
@@ -180,6 +180,8 @@ class AccreditationService
                 $msg = 'Erro desconhecido na etapa complete';
                 if (isset($responseComplete['body']->retorno->msg)) {
                     $msg = $responseComplete['body']->retorno->msg;
+                } elseif (isset($responseComplete['body']->msg)) {
+                    $msg = $responseComplete['body']->msg;
                 } elseif (isset($responseComplete['body']->message)) {
                     $msg = $responseComplete['body']->message;
                 } elseif (isset($responseComplete['body']->error)) {

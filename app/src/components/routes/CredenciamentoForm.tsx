@@ -28,7 +28,8 @@ import {
   Upload,
   X,
   Clock,
-  Lock
+  Lock,
+  AlertTriangle
 } from "lucide-react";
 import type { Lead } from "@/hooks/useLeads";
 import { toast } from "sonner";
