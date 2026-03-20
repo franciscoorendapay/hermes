@@ -97,7 +97,7 @@ export default function GestaoRelatorios() {
             leadsMap[leadUserId].total++;
             const funil = lead.appFunnel || lead.funil_app || 1;
             leadsMap[leadUserId].byFunil[funil] = (leadsMap[leadUserId].byFunil[funil] || 0) + 1;
-            if (lead.accreditation === 1 || lead.credenciado === 1) {
+            if (funil === 5) {
               leadsMap[leadUserId].credenciados++;
               leadsMap[leadUserId].tpvTotal += Number(lead.tpv) || 0;
             }
