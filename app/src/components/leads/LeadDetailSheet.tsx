@@ -370,7 +370,7 @@ export function LeadDetailSheet({
   const proximaAcao = getProximaAcao(lead.funil_app);
   const isCliente = lead.funil_app === 5;
   const isCredenciado = lead.funil_app === 5 && lead.credenciado === 1;
-  const isEmAnalise = lead.funil_app === 9; // Status "em análise"
+  const isNegadoPendente = lead.funil_app === 7; // Status "negado/credenciamento pendente"
   const avatarColor = AVATAR_COLORS[funilId] || "bg-gray-500";
 
   const formatTaxa = (value: number | null | undefined): string => {
@@ -797,24 +797,14 @@ export function LeadDetailSheet({
         {/* Footer Actions - Oculto para leads credenciados */}
         {!isCredenciado && (
           <div className="flex-shrink-0 p-4 border-t bg-background flex gap-3">
-            {/* Botão Reenviar Credenciamento para leads em análise */}
-            {isEmAnalise ? (
+            {/* Botão Reenviar Credenciamento para leads negados/pendentes */}
+            {isNegadoPendente ? (
               <Button
                 className="flex-1 gradient-dark text-white border-0"
-                onClick={handleResendAccreditation}
-                disabled={resendingAccreditation}
+                onClick={() => onContinuarCadastro(lead, "credenciar")}
               >
-                {resendingAccreditation ? (
-                  <>
-                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                    Reenviando...
-                  </>
-                ) : (
-                  <>
-                    <Send className="h-4 w-4 mr-2" />
-                    Reenviar Credenciamento
-                  </>
-                )}
+                <Send className="h-4 w-4 mr-2" />
+                Reenviar Credenciamento
               </Button>
             ) : (
               <>

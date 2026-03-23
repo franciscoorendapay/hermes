@@ -20,6 +20,7 @@ interface MobilePwaBlockerProps {
 export const MobilePwaBlocker = ({ onInstall }: MobilePwaBlockerProps) => {
   const [shouldBlock, setShouldBlock] = useState(false);
   const [isIos, setIsIos] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
 
   useEffect(() => {
     const isMobile = isMobileDevice();
@@ -27,6 +28,13 @@ export const MobilePwaBlocker = ({ onInstall }: MobilePwaBlockerProps) => {
     const isIosDevice = /iphone|ipad|ipod/i.test(navigator.userAgent.toLowerCase());
 
     setIsIos(isIosDevice);
+    
+    // Check if user dismissed the blocker previously
+    const wasDismissed = localStorage.getItem('pwa_blocker_dismissed') === 'true';
+    if (wasDismissed) {
+      setDismissed(true);
+    }
+    
     setShouldBlock(isMobile && !isInstalled);
   }, []);
 
@@ -36,9 +44,14 @@ export const MobilePwaBlocker = ({ onInstall }: MobilePwaBlockerProps) => {
     }
   };
 
-  if (!shouldBlock) {
+  if (!shouldBlock || dismissed) {
     return null;
   }
+
+  const handleDismiss = () => {
+    localStorage.setItem('pwa_blocker_dismissed', 'true');
+    setDismissed(true);
+  };
 
   return (
     <div className="fixed inset-0 z-50 bg-background flex items-center justify-center p-6">
@@ -111,9 +124,14 @@ export const MobilePwaBlocker = ({ onInstall }: MobilePwaBlockerProps) => {
         )}
 
         {/* Footer */}
-        <p className="text-xs text-muted-foreground">
-          É necessário instalar o app para continuar
-        </p>
+        <div className="flex flex-col items-center gap-2">
+          <p className="text-xs text-muted-foreground">
+            Instale o app para a melhor experiência
+          </p>
+          <Button variant="ghost" size="sm" onClick={handleDismiss} className="text-muted-foreground">
+            Continuar pelo navegador
+          </Button>
+        </div>
       </div>
     </div>
   );

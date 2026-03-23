@@ -233,4 +233,38 @@ class LeadController extends AbstractController
 
         return $this->json($leads, Response::HTTP_OK, [], ['groups' => 'lead:read']);
     }
+
+    #[Route('/{id}/assign', name: 'app_lead_admin_assign', methods: ['PUT'])]
+    public function assignUser(
+        string $id,
+        Request $request,
+        LeadRepository $leadRepository,
+        EntityManagerInterface $entityManager
+    ): JsonResponse {
+        $this->denyAccessUnlessGranted('ROLE_ADMIN');
+
+        $lead = $leadRepository->find($id);
+        if (!$lead) {
+            return $this->json(['error' => 'Lead not found'], Response::HTTP_NOT_FOUND);
+        }
+
+        $data = json_decode($request->getContent(), true);
+        $userId = $data['user_id'] ?? null;
+
+        if (!$userId) {
+            return $this->json(['error' => 'user_id is required'], Response::HTTP_BAD_REQUEST);
+        }
+
+        $userRepo = $entityManager->getRepository(User::class);
+        $newUser = $userRepo->find($userId);
+
+        if (!$newUser) {
+            return $this->json(['error' => 'User not found'], Response::HTTP_NOT_FOUND);
+        }
+
+        $lead->setUser($newUser);
+        $entityManager->flush();
+
+        return $this->json($lead, Response::HTTP_OK, [], ['groups' => 'lead:read']);
+    }
 }

@@ -15,13 +15,14 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Calendar } from "@/components/ui/calendar";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { CalendarIcon, Loader2, MapPin } from "lucide-react";
 import { Lead } from "@/hooks/useLeads";
 import { SimulatedPlacesSearch } from "@/components/map/SimulatedPlacesSearch";
-import type { PlaceResult } from "@/components/routes/PlacesSearch";
+import { PlacesSearch, type PlaceResult } from "@/components/routes/PlacesSearch";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import type { EstabelecimentoData } from "@/hooks/useReminders";
@@ -235,16 +236,18 @@ export function AddVisitDialog({
           cep: ac?.postalCode,
           numero: ac?.streetNumber,
         };
-      } else if (manualName.trim() && enderecoData) {
-        // Usando cadastro manual com CEP
+      } else if (manualName.trim()) {
+        // Usando cadastro manual (com ou sem CEP)
         estabelecimentoData = {
           nome: manualName.trim(),
-          endereco: `${enderecoData.logradouro}, ${numero || "s/n"} - ${enderecoData.bairro}`,
-          cep: cep.replace(/\D/g, ""),
-          numero: numero,
-          bairro: enderecoData.bairro,
-          cidade: enderecoData.cidade,
-          estado: enderecoData.uf,
+          endereco: enderecoData 
+            ? `${enderecoData.logradouro}, ${numero || "s/n"} - ${enderecoData.bairro}`
+            : (numero ? `Nº ${numero}` : "Endereço não informado"),
+          cep: cep.replace(/\D/g, "") || undefined,
+          numero: numero || undefined,
+          bairro: enderecoData?.bairro || undefined,
+          cidade: enderecoData?.cidade || undefined,
+          estado: enderecoData?.uf || undefined,
         };
       } else {
         toast.error("Selecione ou cadastre um estabelecimento");
@@ -267,8 +270,8 @@ export function AddVisitDialog({
     // Option 1: Place selected from search
     if (selectedPlace) return true;
 
-    // Option 2: Manual registration complete (name + valid CEP + address found)
-    if (manualName.trim() && enderecoData && cep.replace(/\D/g, "").length === 8) {
+    // Option 2: Manual registration complete (only name is required)
+    if (manualName.trim()) {
       return true;
     }
 
@@ -286,14 +289,29 @@ export function AddVisitDialog({
 
         <div className="space-y-4 py-4">
           {/* Search Section */}
-          <div className="space-y-2">
-            <Label>Buscar estabelecimento cadastrado</Label>
-            <SimulatedPlacesSearch
-              onPlaceSelect={handlePlaceSelect}
-              placeholder="Digite o nome do estabelecimento..."
-              leads={leads}
-            />
-          </div>
+          <Tabs defaultValue="cadastrados" className="w-full">
+            <TabsList className="grid w-full grid-cols-2 mb-2">
+              <TabsTrigger value="cadastrados">Meus Leads</TabsTrigger>
+              <TabsTrigger value="google">Buscar no Google</TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="cadastrados" className="space-y-2 mt-4">
+              <Label>Buscar estabelecimento cadastrado</Label>
+              <SimulatedPlacesSearch
+                onPlaceSelect={handlePlaceSelect}
+                placeholder="Digite o nome do estabelecimento..."
+                leads={leads}
+              />
+            </TabsContent>
+            
+            <TabsContent value="google" className="space-y-2 mt-4">
+              <Label>Buscar novo estabelecimento</Label>
+              <PlacesSearch
+                onPlaceSelect={handlePlaceSelect}
+                placeholder="Busque no Google Places..."
+              />
+            </TabsContent>
+          </Tabs>
 
           {/* Search Result */}
           {selectedPlace && (
@@ -334,7 +352,7 @@ export function AddVisitDialog({
                   <div className="flex-1">
                     <div className="relative">
                       <Input
-                        placeholder="CEP (00000-000)"
+                        placeholder="CEP (opcional)"
                         value={cep}
                         onChange={(e) => handleCepChange(e.target.value)}
                         maxLength={9}

@@ -3,6 +3,8 @@
 namespace App\Command;
 
 use App\Entity\Lead;
+use App\Entity\Accreditation;
+use App\Entity\User;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -23,89 +25,135 @@ class ImportLeadsCommand extends Command
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $csvFile = __DIR__ . '/../../csv/leads.csv';
+        
         if (!file_exists($csvFile)) {
             $output->writeln('<error>Arquivo CSV não encontrado.</error>');
             return Command::FAILURE;
         }
 
         $handle = fopen($csvFile, 'r');
-        // Lê o cabeçalho
-        $header = fgetcsv($handle);
-
         $count = 0;
-        while (($data = fgetcsv($handle)) !== false) {
-            // Se a linha estiver vazia ou tiver poucas colunas, pula
-            if (count($data) < 20) continue;
+        $this->entityManager->beginTransaction();
 
-            $lead = new Lead();
-            
-            // MAPEAMENTO BASEADO NO SEU EXEMPLO:
-            // 0: cod_lead, 6: doc, 11: tpv, 14: nome1, 15: nome2, 16: nome_fantasia, 19: contato1, 21: email1, 23: cep, 28: uf
-            
-            $lead->setLeadCode((int)$data[0]);
-            $lead->setName(!empty($data[14]) ? $data[14] : 'Sem nome');
-            $lead->setTradeName($data[15] ?? null);
-            $lead->setCompanyName($data[16] ?? null);
-            $lead->setDocument($data[6] ?? null);
-            $lead->setEmail($data[21] ?? null);
-            $lead->setPhone($data[19] ?? null);
-            $lead->setTpv($data[11] ?? null);
-            $lead->setAppFunnel((int)($data[3] ?? 0));
-            $lead->setAccreditation((int)($data[4] ?? 0));
-            $lead->setMcc($data[10] ?? null);
-            $lead->setZipCode($data[23] ?? null);
-            $lead->setStreet($data[24] ?? null);
-            $lead->setNumber($data[25] ?? null);
-            $lead->setNeighborhood($data[26] ?? null);
-            $lead->setCity($data[27] ?? null);
-            
-            // Validação de Estado (UF)
-            $lead->setState($this->validateState($data[28] ?? null));
+        $output->writeln('<info>Iniciando processamento...</info>');
 
-            $lead->setNotes($data[30] ?? null); // Endereço/Complemento
-            $lead->setSegment($data[31] ?? null); // Banco
-            $lead->setPaymentTerm($data[32] ?? null); // Tipo conta
-            
-            // Tratamento de Coordenadas (Coluna 38 no seu novo exemplo)
-            if (!empty($data[38]) && str_contains($data[38], ',')) {
-                $coords = explode(',', $data[38]);
-                $lead->setLat(trim($coords[0]));
-                $lead->setLng(trim($coords[1] ?? ''));
+        try {
+            while (($line = fgets($handle)) !== false) {
+                // 1. LIMPEZA DE LIXO: Remove as etiquetas 
+                // Usamos # como delimitador para evitar erros de escape
+                // $line = preg_replace('#\#', '', $line);
+                $line = trim($line);
+
+                if (empty($line)) continue;
+
+                // 2. PARSER: Transforma a linha em array usando o separador ";"
+                $data = str_getcsv($line, ';');
+
+                // Ignora o cabeçalho ou linhas que não começam com o ID numérico do lead
+                if (!isset($data[0]) || !is_numeric($data[0]) || count($data) < 20) {
+                    continue;
+                }
+
+                // 3. ENCODING: Converte para UTF-8 (corrige erros de acentuação como ó e ç)
+                $data = array_map(function($value) {
+                    return $value ? mb_convert_encoding($value, 'UTF-8', 'Windows-1252') : $value;
+                }, $data);
+
+                // 4. BUSCA USUÁRIO: UUID ou Email
+                $userVal = trim($data[1] ?? '');
+                $userRepo = $this->entityManager->getRepository(User::class);
+                $user = $userRepo->find($userVal) ?? $userRepo->findOneBy(['email' => $userVal]);
+
+                if (!$user) {
+                    $output->writeln("<comment>Usuário '{$userVal}' não existe. Pulando Lead {$data[0]}.</comment>");
+                    continue;
+                }
+
+                // 5. MAPEAMENTO DO LEAD
+                $document = str_replace(['.', ',', 'E+', 'e+'], '', $data[6] ?? '');
+                
+                $lead = new Lead();
+                $lead->setLeadCode((int)$data[0]);
+                $lead->setName($data[14] ?: 'Sem nome');
+                $lead->setTradeName($data[16] ?? null);
+                $lead->setCompanyName($data[14] ?? null);
+                $lead->setDocument($document);
+                $lead->setEmail($data[21] ?? null);
+                $lead->setPhone($data[19] ?? null);
+                $lead->setTpv($this->validateDecimal($data[11] ?? 0));
+                $lead->setAppFunnel((int)($data[3] ?? 1));
+                $lead->setAccreditation((int)($data[42] ?? 0));
+                $lead->setMcc($data[10] ?? null);
+                $lead->setUser($user);
+                $lead->setZipCode($data[23] ?? null);
+                $lead->setStreet($data[24] ?? null);
+                $lead->setNumber($data[25] ?? null);
+                $lead->setNeighborhood($data[26] ?? null);
+                $lead->setCity($data[27] ?? null);
+                $lead->setState($this->validateState($data[28] ?? null));
+                $lead->setNotes($data[29] ?? null);
+
+                // Coordenadas (Coluna 38)
+                if (!empty($data[38]) && str_contains($data[38], ',')) {
+                    $coords = explode(',', $data[38]);
+                    $lead->setLat(trim($coords[0]));
+                    $lead->setLng(trim($coords[1] ?? ''));
+                }
+
+                $this->entityManager->persist($lead);
+
+                // 6. MAPEAMENTO DA ACCREDITATION
+                $accreditation = new Accreditation();
+                $accreditation->setLead($lead);
+                $accreditation->setUser($user);
+                $accreditation->setResponsibleName($data[17] ?? $lead->getName());
+                $accreditation->setResponsibleCpf($data[18] ?? $document);
+                $accreditation->setBankName($data[31] ?? 'Banco não informado');
+                $accreditation->setBankCode('000'); // Fixo para evitar erro de bank_code null
+                $accreditation->setAccountType($data[32] ?? 'Conta Corrente');
+                $accreditation->setBankBranch($data[34] ?: '0001');
+                $accreditation->setBankBranchDigit($data[35] ?? '0');
+                $accreditation->setBankAccount($data[36] ?: '00000');
+                $accreditation->setBankAccountDigit($data[37] ?? '0');
+                $accreditation->setStatus('active');
+
+                $this->entityManager->persist($accreditation);
+
+                $count++;
+
+                // Lote de processamento para evitar gargalo de memória do Doctrine
+                if (($count % 50) === 0) {
+                    $this->entityManager->flush();
+                    $this->entityManager->clear();
+                    $output->write('.'); 
+                }
             }
 
-            $lead->setApiId($data[40] ?? null);
-            $lead->setApiToken($data[41] ?? null);
+            $this->entityManager->flush();
+            $this->entityManager->commit();
+            fclose($handle);
 
-            $this->entityManager->persist($lead);
-            $count++;
+            $output->writeln("\n<info>Sucesso! $count leads importados.</info>");
+            return Command::SUCCESS;
 
-            // Flush a cada 50 registros para performance
-            if (($count % 50) === 0) {
-                $this->entityManager->flush();
+        } catch (\Exception $e) {
+            if ($this->entityManager->getConnection()->isTransactionActive()) {
+                $this->entityManager->rollback();
             }
+            if (isset($handle)) fclose($handle);
+            $output->writeln("\n<error>Erro fatal: " . $e->getMessage() . "</error>");
+            return Command::FAILURE;
         }
-
-        $this->entityManager->flush();
-        fclose($handle);
-
-        $output->writeln("<info>Sucesso! $count leads foram importados.</info>");
-        return Command::SUCCESS;
     }
 
-    private function validateState($value)
-    {
+    private function validateState($value) {
         if (!$value) return null;
         $val = trim(str_replace('"', '', $value));
-        // Se o valor for maior que 2 (ex: "Santa Catarina"), pega só as 2 primeiras letras
         return (strlen($val) > 2) ? substr($val, 0, 2) : $val;
     }
 
-    private function validateDecimal($value)
-    {
-        if ($value === null || $value === '' || !is_numeric($value)) {
-            return null;
-        }
-        $floatVal = (float)$value;
-        return number_format($floatVal, 2, '.', '');
+    private function validateDecimal($value) {
+        $clean = str_replace(',', '.', $value);
+        return is_numeric($clean) ? (float)$clean : 0.00;
     }
 }
