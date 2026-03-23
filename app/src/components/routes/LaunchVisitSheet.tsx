@@ -351,6 +351,9 @@ export function LaunchVisitSheet({
   useEffect(() => {
     if (!open) return;
 
+    // Limpa todos os dados do formulário anterior antes de iniciar um novo
+    resetAllForms();
+
     console.log("[LaunchVisit] Sheet opened with:", {
       directAction,
       initialType,
