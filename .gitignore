@@ -2,3 +2,5 @@ api/.env
 app/dev-dist/sw.js
 app/dist.zip
 app/.env
+api/.env
+app/.env
