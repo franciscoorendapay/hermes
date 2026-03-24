@@ -15,6 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useState, useEffect } from "react";
 import {
   ArrowLeft,
@@ -230,7 +231,23 @@ export function CredenciamentoForm({
   const [docAtividade, setDocAtividade] = useState<File | null>(null);
   const [uploadingDocs, setUploadingDocs] = useState(false);
 
+  // Novos campos de KYC
+  const [docIdType, setDocIdType] = useState<"cnh_full" | "cnh_front_back" | "rg_front_back">("cnh_full");
+  const [docSelfie, setDocSelfie] = useState<File | null>(null);
+  const [docCnhFull, setDocCnhFull] = useState<File | null>(null);
+  const [docCnhFront, setDocCnhFront] = useState<File | null>(null);
+  const [docCnhBack, setDocCnhBack] = useState<File | null>(null);
+  const [docRgFront, setDocRgFront] = useState<File | null>(null);
+  const [docRgBack, setDocRgBack] = useState<File | null>(null);
+
   // URLs existentes (carregadas do banco)
+  const [docSelfieUrl, setDocSelfieUrl] = useState<string | null>(null);
+  const [docCnhFullUrl, setDocCnhFullUrl] = useState<string | null>(null);
+  const [docCnhFrontUrl, setDocCnhFrontUrl] = useState<string | null>(null);
+  const [docCnhBackUrl, setDocCnhBackUrl] = useState<string | null>(null);
+  const [docRgFrontUrl, setDocRgFrontUrl] = useState<string | null>(null);
+  const [docRgBackUrl, setDocRgBackUrl] = useState<string | null>(null);
+
   const [docCnpjUrl, setDocCnpjUrl] = useState<string | null>(null);
   const [docFotoUrl, setDocFotoUrl] = useState<string | null>(null);
   const [docResidenciaUrl, setDocResidenciaUrl] = useState<string | null>(null);
@@ -295,11 +312,28 @@ export function CredenciamentoForm({
             setContaNumero(data.bankAccount || "");
             setContaDigito(data.bankAccountDigit || "");
 
-            // Load document URLs
             setDocCnpjUrl(data.docCnpjUrl || null);
             setDocFotoUrl(data.docPhotoUrl || null);
             setDocResidenciaUrl(data.docResidenceUrl || null);
             setDocAtividadeUrl(data.docActivityUrl || null);
+            
+            // Set KYC URLs
+            setDocSelfieUrl(data.selfieUrl || null);
+            setDocCnhFullUrl(data.cnhFullUrl || null);
+            setDocCnhFrontUrl(data.cnhFrontUrl || null);
+            setDocCnhBackUrl(data.cnhBackUrl || null);
+            setDocRgFrontUrl(data.rgFrontUrl || null);
+            setDocRgBackUrl(data.rgBackUrl || null);
+            
+            // Auto select document type if we have existing URLs
+            if (data.cnhFrontUrl || data.cnhBackUrl) setDocIdType("cnh_front_back");
+            else if (data.rgFrontUrl || data.rgBackUrl) setDocIdType("rg_front_back");
+            else if (data.cnhFullUrl) setDocIdType("cnh_full");
+
+            // Disable forms if some docs are already provided
+            setDocumentosPendentes(
+              data.pendingDocuments !== "false" && data.pendingDocuments !== false
+            );
 
             // Check if docs are pending (simple check of URLs)
             const hasAllDocs = !!(data.docCnpjUrl && data.docPhotoUrl && data.docResidenceUrl && data.docActivityUrl);
@@ -658,9 +692,20 @@ export function CredenciamentoForm({
         !!(docResidencia || docResidenciaUrl) &&
         !!(docAtividade || docAtividadeUrl);
     }
+    
+    // Check KYC Documents
+    const hasSelfie = !!(docSelfie || docSelfieUrl);
+    let hasKycDocs = false;
+    if (docIdType === "cnh_full") {
+      hasKycDocs = !!(docCnhFull || docCnhFullUrl);
+    } else if (docIdType === "cnh_front_back") {
+      hasKycDocs = !!(docCnhFront || docCnhFrontUrl) && !!(docCnhBack || docCnhBackUrl);
+    } else if (docIdType === "rg_front_back") {
+      hasKycDocs = !!(docRgFront || docRgFrontUrl) && !!(docRgBack || docRgBackUrl);
+    }
 
-    if (!hasAllDocs) {
-      toast.error("Todos os documentos são obrigatórios");
+    if (!hasAllDocs || !hasSelfie || !hasKycDocs) {
+      toast.error("Todos os documentos normais e KYC são obrigatórios");
       return;
     }
 
@@ -690,6 +735,13 @@ export function CredenciamentoForm({
       const fotoPath = await uploadFile(docFoto, 'foto');
       const residenciaPath = await uploadFile(docResidencia, 'residencia');
       const atividadePath = await uploadFile(docAtividade, 'atividade');
+      
+      const selfiePath = await uploadFile(docSelfie, 'selfie');
+      const cnhFullPath = await uploadFile(docCnhFull, 'cnh_full');
+      const cnhFrontPath = await uploadFile(docCnhFront, 'cnh_front');
+      const cnhBackPath = await uploadFile(docCnhBack, 'cnh_back');
+      const rgFrontPath = await uploadFile(docRgFront, 'rg_front');
+      const rgBackPath = await uploadFile(docRgBack, 'rg_back');
 
       // Buscar ID do credenciamento para atualizar via API
       const existing = await accreditationsService.getByLeadId(selectedLead.id);
@@ -703,6 +755,12 @@ export function CredenciamentoForm({
         docPhotoUrl: fotoPath || docFotoUrl,
         docResidenceUrl: residenciaPath || docResidenciaUrl,
         docActivityUrl: atividadePath || docAtividadeUrl,
+        selfieUrl: selfiePath || docSelfieUrl,
+        cnhFullUrl: cnhFullPath || docCnhFullUrl,
+        cnhFrontUrl: cnhFrontPath || docCnhFrontUrl,
+        cnhBackUrl: cnhBackPath || docCnhBackUrl,
+        rgFrontUrl: rgFrontPath || docRgFrontUrl,
+        rgBackUrl: rgBackPath || docRgBackUrl,
         pendingDocuments: "false"
       });
 
@@ -1153,8 +1211,90 @@ export function CredenciamentoForm({
             </AccordionTrigger>
             <AccordionContent className="space-y-4 pt-4">
               <p className="text-sm text-muted-foreground mb-4">
-                Envie os documentos obrigatórios para finalizar o credenciamento. Formatos aceitos: PDF, JPG, PNG.
+                Envie os documentos obrigatórios para finalizar o credenciamento. Formatos aceitos: PDF, JPG, PNG. O formato KYC exige JPG máx 3MB.
               </p>
+
+              {/* Seção de Validação KYC */}
+              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 space-y-4 mb-6">
+                <h4 className="font-medium text-gray-900 flex items-center gap-2">
+                  <User className="h-4 w-4" />
+                  Validação de Identidade (KYC Adquirente)
+                </h4>
+                
+                <DocumentUpload
+                  label="Selfie (Obrigatório, Rosto do Solicitante)"
+                  file={docSelfie}
+                  existingUrl={docSelfieUrl}
+                  onFileChange={setDocSelfie}
+                  required
+                />
+
+                <div className="space-y-2 mt-4 pt-4 border-t border-gray-200">
+                  <Label>Tipo de Documento de Identificação *</Label>
+                  <RadioGroup value={docIdType} onValueChange={(val: any) => setDocIdType(val)} className="flex flex-col space-y-1">
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="cnh_full" id="r1" />
+                      <Label htmlFor="r1">CNH (Completa/Aberta)</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="cnh_front_back" id="r2" />
+                      <Label htmlFor="r2">CNH (Frente e Verso Separados)</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="rg_front_back" id="r3" />
+                      <Label htmlFor="r3">RG (Frente e Verso Separados)</Label>
+                    </div>
+                  </RadioGroup>
+                </div>
+
+                <div className="space-y-3 pt-2">
+                  {docIdType === "cnh_full" && (
+                    <DocumentUpload
+                      label="CNH Completa"
+                      file={docCnhFull}
+                      existingUrl={docCnhFullUrl}
+                      onFileChange={setDocCnhFull}
+                      required
+                    />
+                  )}
+                  {docIdType === "cnh_front_back" && (
+                    <>
+                      <DocumentUpload
+                        label="CNH - Frente"
+                        file={docCnhFront}
+                        existingUrl={docCnhFrontUrl}
+                        onFileChange={setDocCnhFront}
+                        required
+                      />
+                      <DocumentUpload
+                        label="CNH - Verso"
+                        file={docCnhBack}
+                        existingUrl={docCnhBackUrl}
+                        onFileChange={setDocCnhBack}
+                        required
+                      />
+                    </>
+                  )}
+                  {docIdType === "rg_front_back" && (
+                    <>
+                      <DocumentUpload
+                        label="RG - Frente"
+                        file={docRgFront}
+                        existingUrl={docRgFrontUrl}
+                        onFileChange={setDocRgFront}
+                        required
+                      />
+                      <DocumentUpload
+                        label="RG - Verso"
+                        file={docRgBack}
+                        existingUrl={docRgBackUrl}
+                        onFileChange={setDocRgBack}
+                        required
+                      />
+                    </>
+                  )}
+                </div>
+              </div>
 
               {/* Detect if CPF or CNPJ credentialing */}
               {isCnpjCredenciamento(selectedLead?.doc) && (

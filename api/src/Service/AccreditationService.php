@@ -235,7 +235,13 @@ class AccreditationService
             'RG' => $acc->getDocPhotoUrl(),
             'COMPROVANTE_RESIDENCIA' => $acc->getDocResidenceUrl(),
             'COMPROVANTE_ATIVIDADE' => $acc->getDocActivityUrl(),
-            'DOCUMENTO_CNPJ' => $acc->getDocCnpjUrl()
+            'DOCUMENTO_CNPJ' => $acc->getDocCnpjUrl(),
+            'SELFIE' => $acc->getSelfieUrl(),
+            'CNH_FULL' => $acc->getCnhFullUrl(),
+            'CNH_FRONT' => $acc->getCnhFrontUrl(),
+            'CNH_BACK' => $acc->getCnhBackUrl(),
+            'RG_FRONT' => $acc->getRgFrontUrl(),
+            'RG_BACK' => $acc->getRgBackUrl()
         ];
         
         foreach ($map as $key => $url) {
@@ -393,9 +399,17 @@ class AccreditationService
             $payload['description'] = 'Autônomo';
             
             // Files for PF
-            $payload['file1'] = $files['RG']; // Documento de identidade
-            $payload['file2'] = $files['COMPROVANTE_RESIDENCIA']; // Comprovante de residência
-            $payload['file3'] = $files['COMPROVANTE_ATIVIDADE']; // Comprovante da atividade
+            $payload['file1'] = $files['RG'] ?? null; // Documento de identidade
+            $payload['file2'] = $files['COMPROVANTE_RESIDENCIA'] ?? null; // Comprovante de residência
+            $payload['file3'] = $files['COMPROVANTE_ATIVIDADE'] ?? null; // Comprovante da atividade
+            
+            // New KYC files
+            if (!empty($files['SELFIE'])) $payload['selfie'] = $files['SELFIE'];
+            if (!empty($files['CNH_FULL'])) $payload['cnh_full'] = $files['CNH_FULL'];
+            if (!empty($files['CNH_FRONT'])) $payload['cnh_front'] = $files['CNH_FRONT'];
+            if (!empty($files['CNH_BACK'])) $payload['cnh_back'] = $files['CNH_BACK'];
+            if (!empty($files['RG_FRONT'])) $payload['rg_front'] = $files['RG_FRONT'];
+            if (!empty($files['RG_BACK'])) $payload['rg_back'] = $files['RG_BACK'];
         } else {
             // Pessoa Jurídica (Company)
             $payload['business_name'] = $lead->getCompanyName() ?? $lead->getName();
@@ -423,10 +437,18 @@ class AccreditationService
             $payload['owner_postal_code'] = $this->formatCep($lead->getZipCode());
             
             // Files for PJ
-            $payload['file1'] = $files['DOCUMENTO_CNPJ']; // Cartão CNPJ
-            $payload['file2'] = $files['RG']; // RG/CPF do responsável
-            $payload['file3'] = $files['COMPROVANTE_RESIDENCIA']; // Comprovante de residência
-            $payload['file4'] = $files['COMPROVANTE_ATIVIDADE']; // Comprovante da atividade
+            $payload['file1'] = $files['DOCUMENTO_CNPJ'] ?? null; // Cartão CNPJ
+            $payload['file2'] = $files['RG'] ?? null; // RG/CPF do responsável
+            $payload['file3'] = $files['COMPROVANTE_RESIDENCIA'] ?? null; // Comprovante de residência
+            $payload['file4'] = $files['COMPROVANTE_ATIVIDADE'] ?? null; // Comprovante da atividade
+            
+            // New KYC files
+            if (!empty($files['SELFIE'])) $payload['selfie'] = $files['SELFIE'];
+            if (!empty($files['CNH_FULL'])) $payload['cnh_full'] = $files['CNH_FULL'];
+            if (!empty($files['CNH_FRONT'])) $payload['cnh_front'] = $files['CNH_FRONT'];
+            if (!empty($files['CNH_BACK'])) $payload['cnh_back'] = $files['CNH_BACK'];
+            if (!empty($files['RG_FRONT'])) $payload['rg_front'] = $files['RG_FRONT'];
+            if (!empty($files['RG_BACK'])) $payload['rg_back'] = $files['RG_BACK'];
         }
 
         return $payload;

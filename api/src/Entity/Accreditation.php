@@ -96,6 +96,30 @@ class Accreditation
     #[Groups(['accreditation:read', 'accreditation:write'])]
     private ?string $docActivityUrl = null;
 
+    #[ORM\Column(length: 255, nullable: true)]
+    #[Groups(['accreditation:read', 'accreditation:write'])]
+    private ?string $selfieUrl = null;
+
+    #[ORM\Column(length: 255, nullable: true)]
+    #[Groups(['accreditation:read', 'accreditation:write'])]
+    private ?string $cnhFullUrl = null;
+
+    #[ORM\Column(length: 255, nullable: true)]
+    #[Groups(['accreditation:read', 'accreditation:write'])]
+    private ?string $cnhFrontUrl = null;
+
+    #[ORM\Column(length: 255, nullable: true)]
+    #[Groups(['accreditation:read', 'accreditation:write'])]
+    private ?string $cnhBackUrl = null;
+
+    #[ORM\Column(length: 255, nullable: true)]
+    #[Groups(['accreditation:read', 'accreditation:write'])]
+    private ?string $rgFrontUrl = null;
+
+    #[ORM\Column(length: 255, nullable: true)]
+    #[Groups(['accreditation:read', 'accreditation:write'])]
+    private ?string $rgBackUrl = null;
+
     #[ORM\Column(type: Types::TEXT, nullable: true)]
     #[Groups(['accreditation:read', 'accreditation:write'])]
     private ?string $pendingDocuments = null;
@@ -200,6 +224,24 @@ class Accreditation
     public function getDocActivityUrl(): ?string { return $this->docActivityUrl; }
     public function setDocActivityUrl(?string $docActivityUrl): static { $this->docActivityUrl = $docActivityUrl; return $this; }
 
+    public function getSelfieUrl(): ?string { return $this->selfieUrl; }
+    public function setSelfieUrl(?string $selfieUrl): static { $this->selfieUrl = $selfieUrl; return $this; }
+
+    public function getCnhFullUrl(): ?string { return $this->cnhFullUrl; }
+    public function setCnhFullUrl(?string $cnhFullUrl): static { $this->cnhFullUrl = $cnhFullUrl; return $this; }
+
+    public function getCnhFrontUrl(): ?string { return $this->cnhFrontUrl; }
+    public function setCnhFrontUrl(?string $cnhFrontUrl): static { $this->cnhFrontUrl = $cnhFrontUrl; return $this; }
+
+    public function getCnhBackUrl(): ?string { return $this->cnhBackUrl; }
+    public function setCnhBackUrl(?string $cnhBackUrl): static { $this->cnhBackUrl = $cnhBackUrl; return $this; }
+
+    public function getRgFrontUrl(): ?string { return $this->rgFrontUrl; }
+    public function setRgFrontUrl(?string $rgFrontUrl): static { $this->rgFrontUrl = $rgFrontUrl; return $this; }
+
+    public function getRgBackUrl(): ?string { return $this->rgBackUrl; }
+    public function setRgBackUrl(?string $rgBackUrl): static { $this->rgBackUrl = $rgBackUrl; return $this; }
+
     public function getPendingDocuments(): ?string { return $this->pendingDocuments; }
     public function setPendingDocuments(?string $pendingDocuments): static { $this->pendingDocuments = $pendingDocuments; return $this; }
 
@@ -210,6 +252,7 @@ class Accreditation
     public function setRejectionReason(?string $rejectionReason): static { $this->rejectionReason = $rejectionReason; return $this; }
 
     public function getCreatedAt(): ?\DateTimeImmutable { return $this->createdAt; }
+    public function setCreatedAt(\DateTimeImmutable $createdAt): static { $this->createdAt = $createdAt; return $this; }
     
     public function getUpdatedAt(): ?\DateTimeImmutable { return $this->updatedAt; }
     public function setUpdatedAt(?\DateTimeImmutable $updatedAt): static { $this->updatedAt = $updatedAt; return $this; }

@@ -73,7 +73,7 @@ class ImportLeadsCommand extends Command
                 $document = str_replace(['.', ',', 'E+', 'e+'], '', $data[6] ?? '');
                 
                 $lead = new Lead();
-                $lead->setLeadCode((int)$data[0]);
+                $lead->setLeadCode(1);
                 $lead->setName($data[14] ?: 'Sem nome');
                 $lead->setTradeName($data[16] ?? null);
                 $lead->setCompanyName($data[14] ?? null);
@@ -81,8 +81,8 @@ class ImportLeadsCommand extends Command
                 $lead->setEmail($data[21] ?? null);
                 $lead->setPhone($data[19] ?? null);
                 $lead->setTpv($this->validateDecimal($data[11] ?? 0));
-                $lead->setAppFunnel((int)($data[3] ?? 1));
-                $lead->setAccreditation((int)($data[42] ?? 0));
+                $lead->setAppFunnel((int)(5));
+                $lead->setAccreditation((int)(1));
                 $lead->setMcc($data[10] ?? null);
                 $lead->setUser($user);
                 $lead->setZipCode($data[23] ?? null);
@@ -91,7 +91,23 @@ class ImportLeadsCommand extends Command
                 $lead->setNeighborhood($data[26] ?? null);
                 $lead->setCity($data[27] ?? null);
                 $lead->setState($this->validateState($data[28] ?? null));
-                $lead->setNotes($data[29] ?? null);
+                $lead->setApiId($data[40] ?? null);
+                $lead->setApiToken($data[41] ?? null);
+
+                // Data de registro (Coluna AN = índice 39, formato dd/mm/yyyy HH:mm:ss ou dd/mm/yyyy HH:mm)
+                $dateStr = trim($data[39] ?? '');
+                if (!empty($dateStr)) {
+                    $date = \DateTimeImmutable::createFromFormat('d/m/Y H:i:s', $dateStr);
+                    if (!$date) {
+                        $date = \DateTimeImmutable::createFromFormat('d/m/Y H:i', $dateStr);
+                    }
+                    if (!$date) {
+                        $date = \DateTimeImmutable::createFromFormat('d/m/Y', $dateStr);
+                    }
+                    if ($date) {
+                        $lead->setCreatedAt($date);
+                    }
+                }
 
                 // Coordenadas (Coluna 38)
                 if (!empty($data[38]) && str_contains($data[38], ',')) {
@@ -106,6 +122,7 @@ class ImportLeadsCommand extends Command
                 $accreditation = new Accreditation();
                 $accreditation->setLead($lead);
                 $accreditation->setUser($user);
+                $accreditation->setCreatedAt($lead->getCreatedAt());
                 $accreditation->setResponsibleName($data[17] ?? $lead->getName());
                 $accreditation->setResponsibleCpf($data[18] ?? $document);
                 $accreditation->setBankName($data[31] ?? 'Banco não informado');

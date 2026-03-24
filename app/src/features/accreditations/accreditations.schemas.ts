@@ -34,6 +34,12 @@ export const AccreditationSchema = z.object({
   docPhotoUrl: z.string().nullable().optional(),
   docResidenceUrl: z.string().nullable().optional(),
   docActivityUrl: z.string().nullable().optional(),
+  selfieUrl: z.string().nullable().optional(),
+  cnhFullUrl: z.string().nullable().optional(),
+  cnhFrontUrl: z.string().nullable().optional(),
+  cnhBackUrl: z.string().nullable().optional(),
+  rgFrontUrl: z.string().nullable().optional(),
+  rgBackUrl: z.string().nullable().optional(),
   pendingDocuments: z.any().optional(), // Can be text or boolean in some contexts? Entity says TEXT.
 
   createdAt: z.string().optional(),
