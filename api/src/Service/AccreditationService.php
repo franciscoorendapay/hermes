@@ -147,7 +147,14 @@ class AccreditationService
             // Log complete payload without files
             $logCompletePayload = $completePayload;
             unset($logCompletePayload['file1'], $logCompletePayload['file2'], $logCompletePayload['file3'], $logCompletePayload['file4']);
+            unset($logCompletePayload['selfie'], $logCompletePayload['cnh_full'], $logCompletePayload['cnh_front'], $logCompletePayload['cnh_back'], $logCompletePayload['rg_front'], $logCompletePayload['rg_back']);
             $this->logger->info("Sending complete_{$type} payload (files omitted): " . json_encode($logCompletePayload));
+
+            // Salvar payload completo (incluindo base64) em um arquivo de log
+            $payloadLogPath = $this->params->get('kernel.logs_dir') . "/last_payload_{$type}.json";
+            @file_put_contents($payloadLogPath, json_encode($completePayload, JSON_PRETTY_PRINT));
+            $this->logger->info("JSON completo do payload foi salvo em: " . $payloadLogPath);
+
 
             // Call API complete
             $methodComplete = ($type === 'PJ') ? 'complete_pj' : 'complete_pf';
@@ -579,11 +586,9 @@ class AccreditationService
         
         // Truncate large fields (files) for logging
         foreach ($logData as $key => &$value) {
-            if (is_string($value) && strlen($value) > 100) {
-                // Check if it looks like a base64 image
-                if (strpos($value, 'data:image') === 0) {
-                    $value = substr($value, 0, 50) . '... [content truncated, total length: ' . strlen($value) . ']';
-                }
+            if (is_string($value) && strlen($value) > 1000) {
+                // Truncate any string larger than 1000 chars (likely base64 files)
+                $value = substr($value, 0, 50) . '... [content truncated, total length: ' . strlen($value) . ']';
             }
         }
         

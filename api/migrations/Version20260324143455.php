@@ -20,6 +20,7 @@ final class Version20260324143455 extends AbstractMigration
     public function up(Schema $schema): void
     {
         // this up() migration is auto-generated, please modify it to your needs
+        $this->addSql('ALTER TABLE accreditations ADD selfie_url VARCHAR(255) DEFAULT NULL, ADD cnh_full_url VARCHAR(255) DEFAULT NULL, ADD cnh_front_url VARCHAR(255) DEFAULT NULL, ADD cnh_back_url VARCHAR(255) DEFAULT NULL, ADD rg_front_url VARCHAR(255) DEFAULT NULL, ADD rg_back_url VARCHAR(255) DEFAULT NULL');
 
     }
 

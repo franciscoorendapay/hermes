@@ -75,7 +75,7 @@ class ImportLeadsCommand extends Command
                 $lead = new Lead();
                 $lead->setLeadCode(1);
                 $lead->setName($data[14] ?: 'Sem nome');
-                $lead->setTradeName($data[16] ?? null);
+                $lead->setTradeName($data[16] ?? $data[14]);
                 $lead->setCompanyName($data[14] ?? null);
                 $lead->setDocument($document);
                 $lead->setEmail($data[21] ?? null);
