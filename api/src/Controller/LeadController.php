@@ -95,12 +95,16 @@ class LeadController extends AbstractController
         // Returns all leads sorted by id descending
         $leads = $leadRepository->findBy([], ['id' => 'DESC']);
         
-        $accreditations = $entityManager->getRepository(\App\Entity\Accreditation::class)->findAll();
+        $qb = $entityManager->createQueryBuilder();
+        $qb->select('IDENTITY(a.lead) as lead_id, a.docCnpjUrl as cnpj, a.docPhotoUrl as photo, a.docResidenceUrl as residence, a.docActivityUrl as activity, a.selfieUrl as selfie, a.cnhFullUrl as cnhFull, a.cnhFrontUrl as cnhFront, a.cnhBackUrl as cnhBack, a.rgFrontUrl as rgFront, a.rgBackUrl as rgBack')
+           ->from(\App\Entity\Accreditation::class, 'a')
+           ->where('a.lead IS NOT NULL');
+           
+        $accRows = $qb->getQuery()->getArrayResult();
+        
         $accByLead = [];
-        foreach ($accreditations as $acc) {
-            if ($acc->getLead()) {
-                $accByLead[$acc->getLead()->getId()] = $acc;
-            }
+        foreach ($accRows as $row) {
+            $accByLead[$row['lead_id']] = $row;
         }
 
         $json = $serializer->serialize($leads, 'json', ['groups' => 'lead:read']);
@@ -108,20 +112,9 @@ class LeadController extends AbstractController
 
         foreach ($leadsArray as &$leadData) {
             if (isset($accByLead[$leadData['id']])) {
-                /** @var \App\Entity\Accreditation $acc */
-                $acc = $accByLead[$leadData['id']];
-                $leadData['documents'] = [
-                    'cnpj' => $acc->getDocCnpjUrl(),
-                    'photo' => $acc->getDocPhotoUrl(),
-                    'residence' => $acc->getDocResidenceUrl(),
-                    'activity' => $acc->getDocActivityUrl(),
-                    'selfie' => $acc->getSelfieUrl(),
-                    'cnhFull' => $acc->getCnhFullUrl(),
-                    'cnhFront' => $acc->getCnhFrontUrl(),
-                    'cnhBack' => $acc->getCnhBackUrl(),
-                    'rgFront' => $acc->getRgFrontUrl(),
-                    'rgBack' => $acc->getRgBackUrl(),
-                ];
+                $row = $accByLead[$leadData['id']];
+                unset($row['lead_id']); // Not needed in final output
+                $leadData['documents'] = $row;
             } else {
                 $leadData['documents'] = null;
             }
