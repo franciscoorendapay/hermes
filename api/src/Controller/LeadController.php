@@ -77,6 +77,59 @@ class LeadController extends AbstractController
         return $this->json($stats, Response::HTTP_OK, [], ['groups' => 'lead:read']);
     }
 
+    #[Route('/admin/all', name: 'app_lead_admin_all', methods: ['GET'])]
+    public function adminAll(
+        LeadRepository $leadRepository,
+        EntityManagerInterface $entityManager,
+        SerializerInterface $serializer
+    ): JsonResponse {
+        $user = $this->getUser();
+        if (!$user instanceof User) {
+            return $this->json(['error' => 'Unauthenticated'], Response::HTTP_UNAUTHORIZED);
+        }
+
+        if (!in_array($user->getRole(), ['admin', 'diretor', 'nacional', 'regional', 'manager'])) {
+            return $this->json(['error' => 'Access denied'], Response::HTTP_FORBIDDEN);
+        }
+
+        // Returns all leads sorted by id descending
+        $leads = $leadRepository->findBy([], ['id' => 'DESC']);
+        
+        $accreditations = $entityManager->getRepository(\App\Entity\Accreditation::class)->findAll();
+        $accByLead = [];
+        foreach ($accreditations as $acc) {
+            if ($acc->getLead()) {
+                $accByLead[$acc->getLead()->getId()] = $acc;
+            }
+        }
+
+        $json = $serializer->serialize($leads, 'json', ['groups' => 'lead:read']);
+        $leadsArray = json_decode($json, true);
+
+        foreach ($leadsArray as &$leadData) {
+            if (isset($accByLead[$leadData['id']])) {
+                /** @var \App\Entity\Accreditation $acc */
+                $acc = $accByLead[$leadData['id']];
+                $leadData['documents'] = [
+                    'cnpj' => $acc->getDocCnpjUrl(),
+                    'photo' => $acc->getDocPhotoUrl(),
+                    'residence' => $acc->getDocResidenceUrl(),
+                    'activity' => $acc->getDocActivityUrl(),
+                    'selfie' => $acc->getSelfieUrl(),
+                    'cnhFull' => $acc->getCnhFullUrl(),
+                    'cnhFront' => $acc->getCnhFrontUrl(),
+                    'cnhBack' => $acc->getCnhBackUrl(),
+                    'rgFront' => $acc->getRgFrontUrl(),
+                    'rgBack' => $acc->getRgBackUrl(),
+                ];
+            } else {
+                $leadData['documents'] = null;
+            }
+        }
+
+        return $this->json($leadsArray, Response::HTTP_OK);
+    }
+
     #[Route('/{id}', name: 'app_lead_show', methods: ['GET'])]
     public function show(string $id, LeadRepository $leadRepository): JsonResponse
     {
@@ -132,6 +185,41 @@ class LeadController extends AbstractController
         $entityManager->flush();
 
         return $this->json($lead, Response::HTTP_CREATED, [], ['groups' => 'lead:read']);
+    }
+
+    #[Route('/{id}/assign', name: 'app_lead_assign', methods: ['PUT'])]
+    public function assign(
+        string $id,
+        Request $request,
+        LeadRepository $leadRepository,
+        EntityManagerInterface $entityManager
+    ): JsonResponse {
+        $user = $this->getUser();
+        if (!$user instanceof User || !in_array($user->getRole(), ['admin', 'diretor', 'nacional', 'regional', 'manager'])) {
+            return $this->json(['error' => 'Access denied'], Response::HTTP_FORBIDDEN);
+        }
+
+        $lead = $leadRepository->find($id);
+        if (!$lead) {
+            return $this->json(['error' => 'Lead not found'], Response::HTTP_NOT_FOUND);
+        }
+
+        $data = json_decode($request->getContent(), true);
+        $newUserId = $data['user_id'] ?? null;
+
+        if (!$newUserId) {
+            return $this->json(['error' => 'user_id is required'], Response::HTTP_BAD_REQUEST);
+        }
+
+        $newUser = $entityManager->getRepository(User::class)->find($newUserId);
+        if (!$newUser) {
+            return $this->json(['error' => 'User not found'], Response::HTTP_NOT_FOUND);
+        }
+
+        $lead->setUser($newUser);
+        $entityManager->flush();
+
+        return $this->json($lead, Response::HTTP_OK, [], ['groups' => 'lead:read']);
     }
 
     #[Route('/{id}', name: 'app_lead_update', methods: ['PUT', 'PATCH'])]

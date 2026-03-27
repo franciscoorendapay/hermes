@@ -607,12 +607,22 @@ class AccreditationService
             $logContent = strlen($content) > 1000 ? substr($content, 0, 1000) . '... (truncated)' : $content;
             $this->logger->info("API Response from $endpoint: " . $logContent);
 
+            $responseCode = $response->getStatusCode();
+            $responseBody = json_decode($content, true);
+
+            // Gravar requisição e resposta na base de dados para Logs do Sistema
+            $this->loggerService->logApiRequest($method, $endpoint, $responseCode, $logData, $responseBody);
+
             return [
-                'code' => $response->getStatusCode(),
+                'code' => $responseCode,
                 'body' => json_decode($content)
             ];
         } catch (\Throwable $e) {
             $this->logger->error("API Request Error: " . $e->getMessage());
+            
+            // Gravar falha na base de dados
+            $this->loggerService->logApiRequest($method, $endpoint, 500, $logData, null, $e);
+            
             throw $e;
         }
     }

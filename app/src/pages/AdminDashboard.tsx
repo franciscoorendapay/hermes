@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { LayoutDashboard, Truck, LineChart, LogOut, Shield, FileCheck, FileText } from "lucide-react";
+import { LayoutDashboard, Truck, LineChart, LogOut, Shield, FileCheck, FileText, Users } from "lucide-react";
 import { UserImpersonationSelector } from "@/components/admin/UserImpersonationSelector";
 
 export default function AdminDashboard() {
@@ -58,6 +58,14 @@ export default function AdminDashboard() {
       path: "/admin/accreditations",
       color: "text-green-500",
       bgColor: "bg-green-50"
+    },
+    {
+      title: "Gestão de Leads",
+      description: "Visualização e edição de todos os leads do sistema",
+      icon: Users,
+      path: "/admin/leads",
+      color: "text-indigo-500",
+      bgColor: "bg-indigo-50"
     },
     {
       title: "Logs do Sistema",

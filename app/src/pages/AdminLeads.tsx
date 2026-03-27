@@ -11,9 +11,16 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { http } from "@/shared/api/http";
 import { toast } from "sonner";
-import { Loader2, Search, Pencil, Users } from "lucide-react";
+import { Loader2, Search, Pencil, Users, ChevronLeft, ChevronRight, FileText, User, Image as ImageIcon } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { EditLeadAdminDialog } from "@/components/admin/EditLeadAdminDialog";
 
@@ -33,14 +40,29 @@ interface LeadData {
   city?: string;
   state?: string;
   user?: { id: string; name: string } | null;
+  documents?: {
+    cnpj?: string;
+    photo?: string;
+    residence?: string;
+    activity?: string;
+    selfie?: string;
+    cnhFull?: string;
+    cnhFront?: string;
+    cnhBack?: string;
+    rgFront?: string;
+    rgBack?: string;
+  } | null;
 }
 
 export default function AdminLeads() {
   const [leads, setLeads] = useState<LeadData[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [filterFunnel, setFilterFunnel] = useState<string>("all");
   const [editLead, setEditLead] = useState<LeadData | null>(null);
   const [editOpen, setEditOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 30;
 
   const fetchLeads = async () => {
     setLoading(true);
@@ -60,10 +82,16 @@ export default function AdminLeads() {
   }, []);
 
   const filteredLeads = useMemo(() => {
-    if (!searchTerm.trim()) return leads;
+    let result = leads;
+
+    if (filterFunnel !== "all") {
+      result = result.filter(lead => String(lead.appFunnel) === filterFunnel);
+    }
+
+    if (!searchTerm.trim()) return result;
 
     const term = searchTerm.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-    return leads.filter((lead) => {
+    return result.filter((lead) => {
       const fields = [
         lead.name,
         lead.tradeName,
@@ -85,7 +113,18 @@ export default function AdminLeads() {
             .includes(term)
       );
     });
-  }, [leads, searchTerm]);
+  }, [leads, searchTerm, filterFunnel]);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, filterFunnel]);
+
+  const totalPages = Math.ceil(filteredLeads.length / ITEMS_PER_PAGE);
+  const paginatedLeads = useMemo(() => {
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredLeads.slice(start, start + ITEMS_PER_PAGE);
+  }, [filteredLeads, currentPage]);
 
   const handleEdit = (lead: LeadData) => {
     setEditLead(lead);
@@ -124,15 +163,32 @@ export default function AdminLeads() {
         </Button>
       </PageHeader>
 
-      {/* Search */}
-      <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input
-          placeholder="Buscar por nome, documento, comercial..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="pl-10"
-        />
+      {/* Filters */}
+      <div className="flex flex-col sm:flex-row gap-4 max-w-2xl">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Buscar por nome, documento, comercial..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+        <div className="w-full sm:w-48">
+          <Select value={filterFunnel} onValueChange={setFilterFunnel}>
+            <SelectTrigger>
+              <SelectValue placeholder="Funil" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos</SelectItem>
+              <SelectItem value="1">Prospecção</SelectItem>
+              <SelectItem value="2">Contato</SelectItem>
+              <SelectItem value="3">Negociação</SelectItem>
+              <SelectItem value="4">Proposta</SelectItem>
+              <SelectItem value="5">Credenciado</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       <Card>
@@ -154,18 +210,19 @@ export default function AdminLeads() {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Cód</TableHead>
-                    <TableHead>Nome / Fantasia</TableHead>
+                    <TableHead className="w-[80px]">ID</TableHead>
+                    <TableHead>Cliente</TableHead>
                     <TableHead>Documento</TableHead>
                     <TableHead>Telefone</TableHead>
                     <TableHead>Cidade/UF</TableHead>
+                    <TableHead>Documentos</TableHead>
                     <TableHead>Funil</TableHead>
                     <TableHead>Comercial</TableHead>
                     <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredLeads.map((lead) => (
+                  {paginatedLeads.map((lead) => (
                     <TableRow key={lead.id}>
                       <TableCell className="font-mono text-xs">
                         {lead.leadCode || "-"}
@@ -192,6 +249,27 @@ export default function AdminLeads() {
                         {lead.city
                           ? `${lead.city}/${lead.state || ""}`
                           : "-"}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex gap-1 flex-wrap max-w-[120px]">
+                          {lead.documents ? (
+                            <>
+                              {lead.documents.cnpj && <a href={lead.documents.cnpj} target="_blank" rel="noreferrer" title="CNPJ/Contrato"><FileText className="h-4 w-4 text-green-500 hover:text-green-700 cursor-pointer" /></a>}
+                              {lead.documents.photo && <a href={lead.documents.photo} target="_blank" rel="noreferrer" title="Foto Antiga"><FileText className="h-4 w-4 text-green-500 hover:text-green-700 cursor-pointer" /></a>}
+                              {lead.documents.residence && <a href={lead.documents.residence} target="_blank" rel="noreferrer" title="Residência"><FileText className="h-4 w-4 text-green-500 hover:text-green-700 cursor-pointer" /></a>}
+                              {lead.documents.activity && <a href={lead.documents.activity} target="_blank" rel="noreferrer" title="Atividade"><FileText className="h-4 w-4 text-green-500 hover:text-green-700 cursor-pointer" /></a>}
+                              
+                              {lead.documents.selfie && <a href={lead.documents.selfie} target="_blank" rel="noreferrer" title="Selfie"><User className="h-4 w-4 text-blue-500 hover:text-blue-700 cursor-pointer" /></a>}
+                              {lead.documents.cnhFull && <a href={lead.documents.cnhFull} target="_blank" rel="noreferrer" title="CNH Completa"><ImageIcon className="h-4 w-4 text-blue-500 hover:text-blue-700 cursor-pointer" /></a>}
+                              {lead.documents.cnhFront && <a href={lead.documents.cnhFront} target="_blank" rel="noreferrer" title="CNH Frente"><ImageIcon className="h-4 w-4 text-blue-500 hover:text-blue-700 cursor-pointer" /></a>}
+                              {lead.documents.cnhBack && <a href={lead.documents.cnhBack} target="_blank" rel="noreferrer" title="CNH Verso"><ImageIcon className="h-4 w-4 text-blue-500 hover:text-blue-700 cursor-pointer" /></a>}
+                              {lead.documents.rgFront && <a href={lead.documents.rgFront} target="_blank" rel="noreferrer" title="RG Frente"><ImageIcon className="h-4 w-4 text-blue-500 hover:text-blue-700 cursor-pointer" /></a>}
+                              {lead.documents.rgBack && <a href={lead.documents.rgBack} target="_blank" rel="noreferrer" title="RG Verso"><ImageIcon className="h-4 w-4 text-blue-500 hover:text-blue-700 cursor-pointer" /></a>}
+                            </>
+                          ) : (
+                            <span className="text-xs text-muted-foreground italic">Nenhum</span>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell>
                         <Badge
@@ -230,6 +308,35 @@ export default function AdminLeads() {
                   ))}
                 </TableBody>
               </Table>
+            </div>
+          )}
+          
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between mt-4 px-2">
+              <span className="text-sm text-muted-foreground">
+                Página {currentPage} de {totalPages} ({filteredLeads.length} leads)
+              </span>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                >
+                  <ChevronLeft className="h-4 w-4 mr-1" />
+                  Anterior
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                >
+                  Próxima
+                  <ChevronRight className="h-4 w-4 ml-1" />
+                </Button>
+              </div>
             </div>
           )}
         </CardContent>
