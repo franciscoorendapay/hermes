@@ -88,13 +88,13 @@ export default function Dashboard() {
   const isRefreshing = dashboardRefetching || leadsRefetching || metasRefetching;
 
   const cardKpi = [{
-    label: 'TPV Prometido',
+    label: 'TPV Prometido Realizado',
     value: formatMoney(dashboardStats?.tpvPrometido || 0),
   }, {
     label: 'Carteira de Clientes',
     value: String(dashboardStats?.carteiraClientes || 0),
   }, {
-    label: 'TPV Total',
+    label: 'TPV Prometido Total',
     value: formatMoney(dashboardStats?.tpvTotal || 0),
   }, {
     label: 'Novos Clientes',

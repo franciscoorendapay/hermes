@@ -210,7 +210,10 @@ export function useGestaoStats(selectedUserId?: string, period: Period = 'month'
 
       allLeads.forEach((l: any) => {
         const funil = l.funil_app || 1;
-        consolidadoLeads.byFunil[funil] = (consolidadoLeads.byFunil[funil] || 0) + 1;
+        const dateStr = funil === 5 ? (l.data_credenciamento || l.updated_at || l.data_registro) : (l.updated_at || l.data_registro);
+        if (filterByDate(dateStr)) {
+          consolidadoLeads.byFunil[funil] = (consolidadoLeads.byFunil[funil] || 0) + 1;
+        }
       });
 
       // Daily Credenciamentos Chart Data
@@ -297,7 +300,10 @@ export function useGestaoStats(selectedUserId?: string, period: Period = 'month'
 
         userLeads.forEach((l: any) => {
           const funil = l.funil_app || 1;
-          userLeadStats.byFunil[funil] = (userLeadStats.byFunil[funil] || 0) + 1;
+          const dateStr = funil === 5 ? (l.data_credenciamento || l.updated_at || l.data_registro) : (l.updated_at || l.data_registro);
+          if (filterByDate(dateStr)) {
+            userLeadStats.byFunil[funil] = (userLeadStats.byFunil[funil] || 0) + 1;
+          }
         });
 
         const userVisitaStats: VisitaStats = {

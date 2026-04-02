@@ -15,6 +15,7 @@ export interface Lead {
   telefone: string | null;
   tpv: string | null;
   data_registro: string | null;
+  data_credenciamento: string | null;
   funil_app: number | null;
   credenciado: number | null;
   mcc: string | null;
@@ -63,6 +64,9 @@ export interface Lead {
   // New decision maker fields
   is_decision_maker: string | null; // "sim" or "nao"
   nome_tomador_decisao: string | null;
+
+  // Orenda API identifier
+  apiToken: string | null;
 }
 
 export function useLeads(enabled: boolean = false) {

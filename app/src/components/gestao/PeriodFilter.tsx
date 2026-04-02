@@ -15,13 +15,13 @@ export function PeriodFilter({ value, onChange, showToday = true }: PeriodFilter
       type="single"
       value={value}
       onValueChange={(v) => v && onChange(v as Period)}
-      className="bg-muted rounded-lg p-1"
+      className="bg-slate-100/50 border border-slate-200/60 rounded-xl p-1 shadow-sm h-10"
     >
       {showToday && (
         <ToggleGroupItem
           value="today"
           aria-label="Hoje"
-          className="data-[state=on]:bg-background data-[state=on]:text-foreground gap-1.5 px-3"
+          className="data-[state=on]:bg-white data-[state=on]:text-indigo-600 data-[state=on]:shadow-sm transition-all gap-1.5 px-3 rounded-md h-8 text-slate-500 font-medium hover:text-slate-700"
         >
           <Calendar className="h-4 w-4" />
           <span className="hidden sm:inline">Hoje</span>
@@ -30,7 +30,7 @@ export function PeriodFilter({ value, onChange, showToday = true }: PeriodFilter
       <ToggleGroupItem
         value="week"
         aria-label="Esta Semana"
-        className="data-[state=on]:bg-background data-[state=on]:text-foreground gap-1.5 px-3"
+        className="data-[state=on]:bg-white data-[state=on]:text-indigo-600 data-[state=on]:shadow-sm transition-all gap-1.5 px-3 rounded-md h-8 text-slate-500 font-medium hover:text-slate-700"
       >
         <CalendarDays className="h-4 w-4" />
         <span className="hidden sm:inline">Semana</span>
@@ -38,7 +38,7 @@ export function PeriodFilter({ value, onChange, showToday = true }: PeriodFilter
       <ToggleGroupItem
         value="month"
         aria-label="Este Mês"
-        className="data-[state=on]:bg-background data-[state=on]:text-foreground gap-1.5 px-3"
+        className="data-[state=on]:bg-white data-[state=on]:text-indigo-600 data-[state=on]:shadow-sm transition-all gap-1.5 px-3 rounded-md h-8 text-slate-500 font-medium hover:text-slate-700"
       >
         <CalendarRange className="h-4 w-4" />
         <span className="hidden sm:inline">Mês</span>

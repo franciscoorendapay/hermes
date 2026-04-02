@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Target, MapPin, TrendingUp, RefreshCw, Percent } from 'lucide-react';
+import { Target, MapPin, TrendingUp, RefreshCw, Percent, Settings2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { MonthlyHighlightCard } from '@/components/gestao/MonthlyHighlightCard';
 import { RadialProgressKpi } from '@/components/gestao/RadialProgressKpi';
@@ -10,16 +10,21 @@ import { DailyCredenciamentosChart } from '@/components/gestao/DailyCredenciamen
 import { ComercialSelector } from '@/components/gestao/ComercialSelector';
 import { PeriodFilter, Period } from '@/components/gestao/PeriodFilter';
 import { IndividualDashboard } from '@/components/gestao/IndividualDashboard';
+import { CommissionSettingsDialog } from '@/components/gestao/CommissionSettingsDialog';
 import { useSubordinates } from '@/hooks/useSubordinates';
 import { useGestaoStats } from '@/hooks/useGestaoStats';
+import { useUserRole } from '@/hooks/useUserRole';
 import { Skeleton } from '@/components/ui/skeleton';
 
 export default function GestaoDashboard() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedUserId, setSelectedUserId] = useState<string | null>(searchParams.get('user'));
   const [period, setPeriod] = useState<Period>('month');
+  const [showCommissionSettings, setShowCommissionSettings] = useState(false);
   const { subordinates, isLoading: subsLoading } = useSubordinates();
   const { consolidado, porUsuario, isLoading, refetch } = useGestaoStats(selectedUserId || undefined, period);
+  const { role } = useUserRole();
+  const canManageCommission = role === 'diretor' || role === 'admin';
 
   // Sync state with URL search params
   useEffect(() => {
@@ -102,7 +107,18 @@ export default function GestaoDashboard() {
             selectedId={selectedUserId}
             onSelect={handleSelectUser}
           />
-          <Button variant="outline" size="icon" onClick={refetch} disabled={isLoading}>
+          {canManageCommission && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-10 gap-2 border-slate-200/60 shadow-sm bg-white hover:bg-indigo-50 hover:border-indigo-300 hover:text-indigo-700 text-slate-600 rounded-xl transition-colors"
+              onClick={() => setShowCommissionSettings(true)}
+            >
+              <Settings2 className="h-4 w-4" />
+              <span className="hidden sm:inline text-xs font-medium">Comissão</span>
+            </Button>
+          )}
+          <Button variant="outline" size="icon" className="h-10 w-10 rounded-xl bg-white border border-slate-200/60 shadow-sm hover:bg-slate-50 text-slate-600 hover:text-indigo-600 transition-colors" onClick={refetch} disabled={isLoading}>
             <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
           </Button>
         </div>
@@ -165,6 +181,12 @@ export default function GestaoDashboard() {
       {(isLoading || porUsuario.length > 0) && (
         <TeamPerformanceTable data={performanceData} isLoading={isLoading} />
       )}
+
+      {/* Commission Settings Dialog - Directors only */}
+      <CommissionSettingsDialog
+        open={showCommissionSettings}
+        onOpenChange={setShowCommissionSettings}
+      />
     </div>
   );
 }

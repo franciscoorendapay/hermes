@@ -27,7 +27,7 @@ export function ComercialSelector({
       value={selectedId || (showAllOption ? 'all' : '')}
       onValueChange={(value) => onSelect(value === 'all' ? null : value)}
     >
-      <SelectTrigger className="w-[250px]">
+      <SelectTrigger className="w-[220px] sm:w-[250px] bg-white border border-slate-200/60 shadow-sm hover:bg-slate-50 focus:ring-2 focus:ring-indigo-500/20 focus:ring-offset-0 rounded-xl h-10 font-medium text-slate-700">
         <SelectValue placeholder={placeholder} />
       </SelectTrigger>
       <SelectContent>

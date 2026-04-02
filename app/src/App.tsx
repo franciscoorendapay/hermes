@@ -19,6 +19,7 @@ import GestaoEquipe from "./pages/gestao/GestaoEquipe";
 import GestaoComerciais from "./pages/gestao/GestaoComerciais";
 import GestaoMetas from "./pages/gestao/GestaoMetas";
 import GestaoRelatorios from "./pages/gestao/GestaoRelatorios";
+import GestaoComissoes from "./pages/gestao/GestaoComissoes";
 import GestaoHierarquia from "./pages/gestao/GestaoHierarquia";
 import GestaoSLA from "./pages/gestao/GestaoSLA";
 // Logística
@@ -79,6 +80,7 @@ const App = () => {
                 <Route path="comerciais" element={<GestaoComerciais />} />
                 <Route path="metas" element={<GestaoMetas />} />
                 <Route path="relatorios" element={<GestaoRelatorios />} />
+                <Route path="comissoes" element={<GestaoComissoes />} />
                 <Route path="hierarquia" element={<GestaoHierarquia />} />
                 <Route path="sla" element={<GestaoSLA />} />
               </Route>

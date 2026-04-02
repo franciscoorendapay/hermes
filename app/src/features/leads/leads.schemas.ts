@@ -75,9 +75,15 @@ export const LeadApiSchema = z.object({
   created_at: z.string().nullable().optional(),
   updatedAt: z.string().nullable().optional(),
   updated_at: z.string().nullable().optional(),
+  accreditationDate: z.string().nullable().optional(),
+  accreditation_date: z.string().nullable().optional(),
 
   leadCode: z.any().optional(),
   lead_code: z.any().optional(),
+
+  // Orenda API fields
+  apiToken: z.string().nullable().optional(),
+  apiId: z.string().nullable().optional(),
 }).passthrough();
 
 export type LeadAPI = z.infer<typeof LeadApiSchema>;

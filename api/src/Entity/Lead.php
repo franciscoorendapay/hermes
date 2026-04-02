@@ -143,6 +143,10 @@ class Lead
     #[Groups(['lead:read'])]
     private ?\DateTimeImmutable $updatedAt = null;
 
+    #[ORM\Column(type: Types::DATETIME_IMMUTABLE, nullable: true)]
+    #[Groups(['lead:read', 'lead:write'])]
+    private ?\DateTimeImmutable $accreditationDate = null;
+
     #[ORM\Column(length: 255, nullable: true)]
     #[Groups(['lead:read', 'lead:write'])]
     private ?string $firstContactName = null;
@@ -267,6 +271,9 @@ class Lead
     
     public function getUpdatedAt(): ?\DateTimeImmutable { return $this->updatedAt; }
     public function setUpdatedAt(?\DateTimeImmutable $updatedAt): static { $this->updatedAt = $updatedAt; return $this; }
+
+    public function getAccreditationDate(): ?\DateTimeImmutable { return $this->accreditationDate; }
+    public function setAccreditationDate(?\DateTimeImmutable $accreditationDate): static { $this->accreditationDate = $accreditationDate; return $this; }
 
     public function getFirstContactName(): ?string { return $this->firstContactName; }
     public function setFirstContactName(?string $firstContactName): static { $this->firstContactName = $firstContactName; return $this; }

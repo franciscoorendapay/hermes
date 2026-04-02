@@ -677,6 +677,9 @@ class AccreditationService
                         // Funnel 5 = Credenciado
                         $lead->setAppFunnel(5);
                         $lead->setAccreditation(1);
+                        if (!$lead->getAccreditationDate()) {
+                            $lead->setAccreditationDate(new \DateTimeImmutable());
+                        }
                         $this->em->persist($lead);
 
                         $this->em->persist($accreditation);

@@ -39,6 +39,7 @@ export const adaptLeadApiToApp = (apiLead: LeadAPI): Lead => {
     telefone: apiLead.phone ? String(apiLead.phone) : null,
     tpv: apiLead.tpv ? String(apiLead.tpv) : null,
     data_registro: (apiLead.createdAt || apiLead.created_at || new Date().toISOString()) as string,
+    data_credenciamento: (apiLead.accreditationDate || apiLead.accreditation_date || null) as string | null,
     funil_app: Number(apiLead.appFunnel || apiLead.app_funnel || 1),
     credenciado: Number(apiLead.accreditation || 0),
     mcc: apiLead.mcc || null,
@@ -90,6 +91,7 @@ export const adaptLeadApiToApp = (apiLead: LeadAPI): Lead => {
 
     is_decision_maker: isDecisionMakerState,
     nome_tomador_decisao: contactRef,
+    apiToken: (apiLead as any).apiToken || null,
   };
 
   return adapted;
