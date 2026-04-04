@@ -79,9 +79,7 @@ class LeadController extends AbstractController
 
     #[Route('/admin/all', name: 'app_lead_admin_all', methods: ['GET'])]
     public function adminAll(
-        LeadRepository $leadRepository,
-        EntityManagerInterface $entityManager,
-        SerializerInterface $serializer
+        EntityManagerInterface $entityManager
     ): JsonResponse {
         $user = $this->getUser();
         if (!$user instanceof User) {
@@ -92,28 +90,54 @@ class LeadController extends AbstractController
             return $this->json(['error' => 'Access denied'], Response::HTTP_FORBIDDEN);
         }
 
-        // Returns all leads sorted by id descending
-        $leads = $leadRepository->findBy([], ['id' => 'DESC']);
+        // 1. Fetch all leads with their users in a single efficient query
+        $leads = $entityManager->createQueryBuilder()
+            ->select('l.id, l.name, l.tradeName, l.companyName, l.document, l.email, l.phone, l.tpv, l.appFunnel, l.accreditation, l.city, l.state, l.createdAt, l.accreditationDate, u.id as userId, u.name as userName')
+            ->from(Lead::class, 'l')
+            ->leftJoin('l.user', 'u')
+            ->orderBy('l.id', 'DESC')
+            ->getQuery()
+            ->getArrayResult();
         
-        $qb = $entityManager->createQueryBuilder();
-        $qb->select('IDENTITY(a.lead) as lead_id, a.docCnpjUrl as cnpj, a.docPhotoUrl as photo, a.docResidenceUrl as residence, a.docActivityUrl as activity, a.selfieUrl as selfie, a.cnhFullUrl as cnhFull, a.cnhFrontUrl as cnhFront, a.cnhBackUrl as cnhBack, a.rgFrontUrl as rgFront, a.rgBackUrl as rgBack')
-           ->from(\App\Entity\Accreditation::class, 'a')
-           ->where('a.lead IS NOT NULL');
+        // 2. Fetch accreditation documents
+        $accRows = $entityManager->createQueryBuilder()
+            ->select('IDENTITY(a.lead) as lead_id, a.docCnpjUrl as cnpj, a.docPhotoUrl as photo, a.docResidenceUrl as residence, a.docActivityUrl as activity, a.selfieUrl as selfie, a.cnhFullUrl as cnhFull, a.cnhFrontUrl as cnhFront, a.cnhBackUrl as cnhBack, a.rgFrontUrl as rgFront, a.rgBackUrl as rgBack')
+            ->from(\App\Entity\Accreditation::class, 'a')
+            ->where('a.lead IS NOT NULL')
+            ->getQuery()
+            ->getArrayResult();
            
-        $accRows = $qb->getQuery()->getArrayResult();
-        
         $accByLead = [];
         foreach ($accRows as $row) {
-            $accByLead[$row['lead_id']] = $row;
+            $leadId = $row['lead_id'];
+            unset($row['lead_id']);
+            $accByLead[$leadId] = $row;
         }
 
-        // Prepare response data with efficient serialization context
-        return $this->json($leads, Response::HTTP_OK, [], [
-            'groups' => 'lead:read',
-            'circular_reference_handler' => function ($object) {
-                return $object->getId();
+        // 3. Construct final response with manual merging and date formatting
+        $results = [];
+        foreach ($leads as $l) {
+            $leadId = $l['id'];
+            
+            // Format dates to strings for JSON
+            if ($l['createdAt'] instanceof \DateTimeInterface) {
+                $l['createdAt'] = $l['createdAt']->format('c'); // ISO-8601
             }
-        ]);
+            if ($l['accreditationDate'] instanceof \DateTimeInterface) {
+                $l['accreditationDate'] = $l['accreditationDate']->format('c'); // ISO-8601
+            }
+
+            $l['user'] = [
+                'id' => $l['userId'],
+                'name' => $l['userName']
+            ];
+            unset($l['userId'], $l['userName']);
+            
+            $l['documents'] = $accByLead[$leadId] ?? null;
+            $results[] = $l;
+        }
+
+        return $this->json($results, Response::HTTP_OK);
     }
 
     #[Route('/{id}', name: 'app_lead_show', methods: ['GET'])]
