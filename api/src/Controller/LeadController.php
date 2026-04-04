@@ -107,20 +107,13 @@ class LeadController extends AbstractController
             $accByLead[$row['lead_id']] = $row;
         }
 
-        $json = $serializer->serialize($leads, 'json', ['groups' => 'lead:read']);
-        $leadsArray = json_decode($json, true);
-
-        foreach ($leadsArray as &$leadData) {
-            if (isset($accByLead[$leadData['id']])) {
-                $row = $accByLead[$leadData['id']];
-                unset($row['lead_id']); // Not needed in final output
-                $leadData['documents'] = $row;
-            } else {
-                $leadData['documents'] = null;
+        // Prepare response data with efficient serialization context
+        return $this->json($leads, Response::HTTP_OK, [], [
+            'groups' => 'lead:read',
+            'circular_reference_handler' => function ($object) {
+                return $object->getId();
             }
-        }
-
-        return $this->json($leadsArray, Response::HTTP_OK);
+        ]);
     }
 
     #[Route('/{id}', name: 'app_lead_show', methods: ['GET'])]
@@ -304,15 +297,6 @@ class LeadController extends AbstractController
             ->getResult();
 
         return $this->json($visits, Response::HTTP_OK, [], ['groups' => 'visit:read']);
-    }
-    #[Route('/admin/all', name: 'app_lead_admin_index', methods: ['GET'])]
-    public function adminIndex(LeadRepository $leadRepository): JsonResponse
-    {
-        $this->denyAccessUnlessGranted('ROLE_ADMIN');
-
-        $leads = $leadRepository->findAll();
-
-        return $this->json($leads, Response::HTTP_OK, [], ['groups' => 'lead:read']);
     }
 
     #[Route('/{id}/assign', name: 'app_lead_admin_assign', methods: ['PUT'])]
