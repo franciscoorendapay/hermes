@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Download, Coins, ArrowLeft } from 'lucide-react';
+import { Download, Coins, ArrowLeft, FileSpreadsheet } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -14,6 +14,7 @@ import { Input } from '@/components/ui/input';
 import { Search } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useNavigate } from 'react-router-dom';
+import * as XLSX from 'xlsx';
 
 interface ComissaoByUser {
   userId: string;
@@ -22,6 +23,17 @@ interface ComissaoByUser {
   receita: number;
   comissao: number;
   leadsCount: number;
+}
+
+interface ClienteComissaoRow {
+  'Nome do Cliente': string;
+  'Email': string;
+  'CNPJ': string;
+  'Comercial': string;
+  'Valor Transacionado': number;
+  'Receita Bruta': number;
+  'Receita Líquida': number;
+  'Comissão': number;
 }
 
 const monthNames = [
@@ -38,8 +50,9 @@ export default function GestaoComissoes() {
   const [endDate, setEndDate] = useState(format(endOfMonth(new Date()), 'yyyy-MM-dd'));
   const [searchTerm, setSearchTerm] = useState('');
   const [comissaoByUser, setComissaoByUser] = useState<ComissaoByUser[]>([]);
+  const [clienteRows, setClienteRows] = useState<ClienteComissaoRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  
+
   const { user } = useAuth();
   const { subordinates, isLoading: subsLoading } = useSubordinates();
   const { settings: commissionSettings, isLoading: commissionLoading } = useCommissionSettings();
@@ -69,7 +82,7 @@ export default function GestaoComissoes() {
         // 1. Fetch leads to get IDs and Safra
         const leadsRes = await http.get('/leads', { params: { user_ids: idsParam } });
         const leads = (Array.isArray(leadsRes.data) ? leadsRes.data : leadsRes.data?.leads) || [];
-        
+
         // 2. Fetch real transacted data for these users/period
         const params: any = { user_ids: idsParam };
         if (reportMode === 'month') {
@@ -95,17 +108,21 @@ export default function GestaoComissoes() {
           };
         });
 
+        const detailedRows: ClienteComissaoRow[] = [];
+
         leads.forEach((l: any) => {
           const uid = l.user?.id || l.user_id;
           const isCredenciado = l.credenciado === 1 || l.accreditation === 1;
           const funil = l.funil_app || l.appFunnel || l.app_funnel;
-          
+
           if (uid && commissionsMap[uid] && isCredenciado && (funil === 5 || funil === 4)) {
             const trans = transMap[l.id];
             if (trans) {
-              const receita = Number(trans.receita_liquida || 0);
+              const transacionado = Number(trans.transacionado || 0);
+              const receitaBruta = Number(trans.receita_bruta || 0);
+              const receitaLiquida = Number(trans.receita_liquida || 0);
               const diff = getSafraDiff(l.data_credenciamento || l.data_registro || l.updated_at);
-              
+
               let rate: number;
               if (commissionSettings.type === 'fixed') {
                 rate = commissionSettings.rate_fixed ?? 0.05;
@@ -113,15 +130,29 @@ export default function GestaoComissoes() {
                 rate = diff <= 3 ? (commissionSettings.rate_novos ?? 0.07) : (commissionSettings.rate_consolidados ?? 0.035);
               }
 
-              commissionsMap[uid].transacionado += Number(trans.transacionado || 0);
-              commissionsMap[uid].receita += receita;
-              commissionsMap[uid].comissao += receita * rate;
+              const comissao = receitaLiquida * rate;
+
+              commissionsMap[uid].transacionado += transacionado;
+              commissionsMap[uid].receita += receitaLiquida;
+              commissionsMap[uid].comissao += comissao;
               commissionsMap[uid].leadsCount++;
+
+              detailedRows.push({
+                'Nome do Cliente': l.tradeName || l.companyName || l.name || '',
+                'Email': l.email || '',
+                'CNPJ': l.document || '',
+                'Comercial': commissionsMap[uid].userName,
+                'Valor Transacionado': transacionado,
+                'Receita Bruta': receitaBruta,
+                'Receita Líquida': receitaLiquida,
+                'Comissão': comissao,
+              });
             }
           }
         });
 
         setComissaoByUser(Object.values(commissionsMap).sort((a, b) => b.comissao - a.comissao));
+        setClienteRows(detailedRows.sort((a, b) => b['Comissão'] - a['Comissão']));
       } catch (err) {
         console.error('Error fetching commissions:', err);
       } finally {
@@ -132,22 +163,91 @@ export default function GestaoComissoes() {
     fetchCommissions();
   }, [subordinates, subsLoading, user, startDate, endDate, mes, ano, reportMode, commissionSettings]);
 
-  const filteredCommissions = comissaoByUser.filter(u => 
+  const filteredCommissions = comissaoByUser.filter(u =>
     u.userName.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const exportToCSV = (data: any[], filename: string) => {
-    const headers = Object.keys(data[0] || {}).join(',');
-    const rows = data.map(row => Object.values(row).join(','));
-    const csv = [headers, ...rows].join('\n');
-    
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${filename}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+  const periodoLabel = reportMode === 'month'
+    ? `${String(mes).padStart(2, '0')}-${ano}`
+    : `${startDate}_${endDate}`;
+
+  const exportDetailedExcel = () => {
+    if (clienteRows.length === 0) return;
+
+    // Format currency columns for display
+    const formatted = clienteRows.map(r => ({
+      'Nome do Cliente': r['Nome do Cliente'],
+      'Email': r['Email'],
+      'CNPJ': r['CNPJ'],
+      'Comercial': r['Comercial'],
+      'Valor Transacionado': r['Valor Transacionado'],
+      'Receita Bruta': r['Receita Bruta'],
+      'Receita Líquida': r['Receita Líquida'],
+      'Comissão': r['Comissão'],
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(formatted);
+
+    // Column widths
+    ws['!cols'] = [
+      { wch: 35 }, // Nome do Cliente
+      { wch: 30 }, // Email
+      { wch: 18 }, // CNPJ
+      { wch: 25 }, // Comercial
+      { wch: 20 }, // Valor Transacionado
+      { wch: 16 }, // Receita Bruta
+      { wch: 16 }, // Receita Líquida
+      { wch: 14 }, // Comissão
+    ];
+
+    // Format currency cells (columns E-H = indices 4-7)
+    const currencyCols = [4, 5, 6, 7];
+    const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
+    for (let R = range.s.r + 1; R <= range.e.r; R++) {
+      currencyCols.forEach(C => {
+        const cellAddr = XLSX.utils.encode_cell({ r: R, c: C });
+        if (ws[cellAddr]) {
+          ws[cellAddr].z = 'R$ #,##0.00';
+        }
+      });
+    }
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Comissões por Cliente');
+    XLSX.writeFile(wb, `comissoes-clientes-${periodoLabel}.xlsx`);
+  };
+
+  const exportSummaryExcel = () => {
+    if (filteredCommissions.length === 0) return;
+
+    const data = filteredCommissions.map(u => ({
+      'Comercial': u.userName,
+      'Clientes Ativos': u.leadsCount,
+      'Transacionado': u.transacionado,
+      'Receita Líquida': u.receita,
+      'Comissão': u.comissao,
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(data);
+    ws['!cols'] = [
+      { wch: 25 },
+      { wch: 15 },
+      { wch: 18 },
+      { wch: 16 },
+      { wch: 14 },
+    ];
+
+    const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
+    for (let R = range.s.r + 1; R <= range.e.r; R++) {
+      [2, 3, 4].forEach(C => {
+        const cellAddr = XLSX.utils.encode_cell({ r: R, c: C });
+        if (ws[cellAddr]) ws[cellAddr].z = 'R$ #,##0.00';
+      });
+    }
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Resumo por Comercial');
+    XLSX.writeFile(wb, `comissoes-resumo-${periodoLabel}.xlsx`);
   };
 
   if (isLoading || subsLoading || commissionLoading) {
@@ -179,17 +279,17 @@ export default function GestaoComissoes() {
       <Card className="bg-muted/30 border-dashed">
         <CardContent className="p-4 flex flex-col gap-4">
           <div className="flex items-center gap-4 border-b border-border/50 pb-2 mb-2">
-            <Button 
-              variant={reportMode === 'month' ? 'default' : 'ghost'} 
-              size="sm" 
+            <Button
+              variant={reportMode === 'month' ? 'default' : 'ghost'}
+              size="sm"
               onClick={() => setReportMode('month')}
               className="h-8"
             >
               Por Mês
             </Button>
-            <Button 
-              variant={reportMode === 'range' ? 'default' : 'ghost'} 
-              size="sm" 
+            <Button
+              variant={reportMode === 'range' ? 'default' : 'ghost'}
+              size="sm"
               onClick={() => setReportMode('range')}
               className="h-8"
             >
@@ -231,29 +331,29 @@ export default function GestaoComissoes() {
               <>
                 <div className="space-y-1 flex-1">
                   <label className="text-[10px] font-bold uppercase text-muted-foreground ml-1">Data Início</label>
-                  <Input 
-                    type="date" 
-                    value={startDate} 
-                    onChange={(e) => setStartDate(e.target.value)} 
+                  <Input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
                     className="h-9"
                   />
                 </div>
                 <div className="space-y-1 flex-1">
                   <label className="text-[10px] font-bold uppercase text-muted-foreground ml-1">Data Fim</label>
-                  <Input 
-                    type="date" 
-                    value={endDate} 
-                    onChange={(e) => setEndDate(e.target.value)} 
+                  <Input
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
                     className="h-9"
                   />
                 </div>
               </>
             )}
-            
+
             <div className="flex gap-2">
-              <Button 
-                variant="outline" 
-                size="sm" 
+              <Button
+                variant="outline"
+                size="sm"
                 className="h-9"
                 onClick={() => {
                   if (reportMode === 'month') {
@@ -285,7 +385,7 @@ export default function GestaoComissoes() {
                 Período: {reportMode === 'month' ? `${mes}/${ano}` : `${startDate && format(new Date(startDate), 'dd/MM/yyyy')} até ${endDate && format(new Date(endDate), 'dd/MM/yyyy')}`}
               </CardDescription>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <div className="relative w-full sm:w-64">
                 <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
@@ -295,15 +395,27 @@ export default function GestaoComissoes() {
                   className="pl-8 h-9"
                 />
               </div>
-              <Button variant="outline" size="sm" onClick={() => exportToCSV(filteredCommissions.map(u => ({
-                Comercial: u.userName,
-                Clientes: u.leadsCount,
-                Transacionado: formatMoney(u.transacionado),
-                Receita: formatMoney(u.receita),
-                Comissão: formatMoney(u.comissao),
-              })), 'relatorio-comissoes')}>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-9"
+                onClick={exportSummaryExcel}
+                disabled={filteredCommissions.length === 0}
+                title="Exportar resumo por comercial"
+              >
                 <Download className="h-4 w-4 mr-2" />
-                Exportar
+                Resumo
+              </Button>
+              <Button
+                variant="default"
+                size="sm"
+                className="h-9"
+                onClick={exportDetailedExcel}
+                disabled={clienteRows.length === 0}
+                title="Exportar detalhado por cliente"
+              >
+                <FileSpreadsheet className="h-4 w-4 mr-2" />
+                Por Cliente
               </Button>
             </div>
           </div>
@@ -327,18 +439,18 @@ export default function GestaoComissoes() {
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredCommissions.map((user) => (
-                  <TableRow key={user.userId}>
-                    <TableCell className="font-medium">{user.userName}</TableCell>
-                    <TableCell className="text-right">{user.leadsCount}</TableCell>
+                filteredCommissions.map((u) => (
+                  <TableRow key={u.userId}>
+                    <TableCell className="font-medium">{u.userName}</TableCell>
+                    <TableCell className="text-right">{u.leadsCount}</TableCell>
                     <TableCell className="text-right font-medium text-blue-600">
-                      {formatMoney(user.transacionado)}
+                      {formatMoney(u.transacionado)}
                     </TableCell>
                     <TableCell className="text-right">
-                      {formatMoney(user.receita)}
+                      {formatMoney(u.receita)}
                     </TableCell>
                     <TableCell className="text-right font-bold text-green-600">
-                      {formatMoney(user.comissao)}
+                      {formatMoney(u.comissao)}
                     </TableCell>
                   </TableRow>
                 ))
