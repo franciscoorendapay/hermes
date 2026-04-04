@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useSubordinates } from '@/hooks/useSubordinates';
+import { useAuth } from '@/hooks/useAuth';
 import { http } from '@/shared/api/http';
 import { useCommissionSettings } from '@/hooks/useCommissionSettings';
 import { formatMoney } from '@/lib/formatters';
@@ -39,6 +40,7 @@ export default function GestaoComissoes() {
   const [comissaoByUser, setComissaoByUser] = useState<ComissaoByUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   
+  const { user } = useAuth();
   const { subordinates, isLoading: subsLoading } = useSubordinates();
   const { settings: commissionSettings, isLoading: commissionLoading } = useCommissionSettings();
 
@@ -58,7 +60,10 @@ export default function GestaoComissoes() {
     const fetchCommissions = async () => {
       setIsLoading(true);
       try {
-        const userIds = subordinates.map(s => s.id);
+        const allUsers = user
+          ? [{ id: user.id, nome: user.name }, ...subordinates]
+          : subordinates;
+        const userIds = allUsers.map(s => s.id);
         const idsParam = userIds.join(',');
 
         // 1. Fetch leads to get IDs and Safra
@@ -79,7 +84,7 @@ export default function GestaoComissoes() {
 
         // 3. Process and calculate
         const commissionsMap: Record<string, ComissaoByUser> = {};
-        subordinates.forEach(sub => {
+        allUsers.forEach(sub => {
           commissionsMap[sub.id] = {
             userId: sub.id,
             userName: sub.nome,
@@ -125,7 +130,7 @@ export default function GestaoComissoes() {
     };
 
     fetchCommissions();
-  }, [subordinates, subsLoading, startDate, endDate, mes, ano, reportMode, commissionSettings]);
+  }, [subordinates, subsLoading, user, startDate, endDate, mes, ano, reportMode, commissionSettings]);
 
   const filteredCommissions = comissaoByUser.filter(u => 
     u.userName.toLowerCase().includes(searchTerm.toLowerCase())
