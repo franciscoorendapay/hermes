@@ -5,8 +5,6 @@ import { LeadAPI } from "./leads.schemas";
  * Converte os dados da API (Symfony) para o formato do App
  */
 export const adaptLeadApiToApp = (apiLead: LeadAPI): Lead => {
-  console.log("[ADAPTER] Loading Lead from API:", apiLead.id);
-
   // 1. Identificação do Contato (Prioridade para camelCase do Symfony)
   const rawContact = apiLead.firstContactName || apiLead.first_contact_name || apiLead.contactName || apiLead.contact_name;
   const contactRef = rawContact ? String(rawContact) : null;

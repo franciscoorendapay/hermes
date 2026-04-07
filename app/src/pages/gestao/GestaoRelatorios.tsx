@@ -1,14 +1,15 @@
 import { useState, useEffect, useMemo } from 'react';
+import { ColumnDef } from '@tanstack/react-table';
 import { Download, Users, TrendingUp, BarChart3, Filter } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { DataTable, SortableHeader } from '@/components/ui/data-table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { useSubordinates, Subordinate } from '@/hooks/useSubordinates';
+import { useSubordinates } from '@/hooks/useSubordinates';
 import { http } from '@/shared/api/http';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserRole } from '@/hooks/useUserRole';
@@ -35,8 +36,6 @@ interface FaturamentoByUser {
   atingimentoValor: number;
 }
 
-const COLORS = ['#F58320', '#22c55e', '#3b82f6', '#8b5cf6', '#ec4899', '#14b8a6'];
-
 const monthNames = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
 
 export default function GestaoRelatorios() {
@@ -45,7 +44,7 @@ export default function GestaoRelatorios() {
   const [leadsByUser, setLeadsByUser] = useState<LeadsByUser[]>([]);
   const [faturamentoByUser, setFaturamentoByUser] = useState<FaturamentoByUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  
+
   const { subordinates, isLoading: subsLoading } = useSubordinates();
   const { user } = useAuth();
   const { role } = useUserRole();
@@ -58,27 +57,94 @@ export default function GestaoRelatorios() {
     }).format(value);
   };
 
+  const getProgressColor = (value: number) => {
+    if (value >= 100) return 'text-green-600';
+    if (value >= 70) return 'text-yellow-600';
+    return 'text-red-600';
+  };
+
+  const leadsColumns: ColumnDef<LeadsByUser>[] = [
+    {
+      accessorKey: 'userName',
+      header: ({ column }) => <SortableHeader column={column}>Comercial</SortableHeader>,
+      cell: ({ row }) => <span className="font-medium">{row.original.userName}</span>,
+    },
+    {
+      accessorKey: 'total',
+      header: ({ column }) => <SortableHeader column={column} className="ml-auto">Leads</SortableHeader>,
+      cell: ({ row }) => <div className="text-right">{row.original.total}</div>,
+    },
+    {
+      accessorKey: 'credenciados',
+      header: ({ column }) => <SortableHeader column={column} className="ml-auto">Credenciados</SortableHeader>,
+      cell: ({ row }) => (
+        <div className="text-right">
+          <Badge variant="secondary" className="bg-green-100 text-green-800">
+            {row.original.credenciados}
+          </Badge>
+        </div>
+      ),
+    },
+    {
+      id: 'conversao',
+      accessorFn: (row) => row.total > 0 ? (row.credenciados / row.total) * 100 : 0,
+      header: ({ column }) => <SortableHeader column={column} className="ml-auto">Conversão</SortableHeader>,
+      cell: ({ row }) => (
+        <div className="text-right">
+          {row.original.total > 0 ? ((row.original.credenciados / row.original.total) * 100).toFixed(1) : 0}%
+        </div>
+      ),
+    },
+  ];
+
+  const faturamentoColumns: ColumnDef<FaturamentoByUser>[] = [
+    {
+      accessorKey: 'userName',
+      header: ({ column }) => <SortableHeader column={column}>Comercial</SortableHeader>,
+      cell: ({ row }) => <span className="font-medium">{row.original.userName}</span>,
+    },
+    {
+      accessorKey: 'tpvTotal',
+      header: ({ column }) => <SortableHeader column={column} className="ml-auto">TPV</SortableHeader>,
+      cell: ({ row }) => <div className="text-right">{formatCurrency(row.original.tpvTotal)}</div>,
+    },
+    {
+      accessorKey: 'metaValor',
+      header: ({ column }) => <SortableHeader column={column} className="ml-auto">Meta Valor</SortableHeader>,
+      cell: ({ row }) => <div className="text-right text-muted-foreground">{formatCurrency(row.original.metaValor)}</div>,
+    },
+    {
+      accessorKey: 'atingimentoValor',
+      header: ({ column }) => <SortableHeader column={column} className="ml-auto">Atingimento</SortableHeader>,
+      cell: ({ row }) => (
+        <div className="flex items-center justify-end gap-2">
+          <Progress value={Math.min(row.original.atingimentoValor, 100)} className="w-16 h-2" />
+          <span className={`text-sm font-medium ${getProgressColor(row.original.atingimentoValor)}`}>
+            {row.original.atingimentoValor.toFixed(0)}%
+          </span>
+        </div>
+      ),
+    },
+  ];
+
   useEffect(() => {
     if (subsLoading || !subordinates.length) return;
-    
+
     const fetchData = async () => {
       setIsLoading(true);
       try {
         const userIds = subordinates.map(s => s.id);
-        
-        // Fetch leads data from local API
+
         const leadsResponse = await http.get('/leads', {
           params: { user_ids: userIds.join(',') }
         });
         const leadsData: any[] = Array.isArray(leadsResponse.data) ? leadsResponse.data : (leadsResponse.data?.leads || []);
 
-        // Fetch metas data for current month from local API
         const metasResponse = await http.get('/goals', {
           params: { mes, ano }
         });
         const metasData: any[] = Array.isArray(metasResponse.data) ? metasResponse.data : [];
 
-        // Process leads by user
         const leadsMap: Record<string, LeadsByUser> = {};
         subordinates.forEach(sub => {
           leadsMap[sub.id] = {
@@ -106,7 +172,6 @@ export default function GestaoRelatorios() {
 
         setLeadsByUser(Object.values(leadsMap).sort((a, b) => b.total - a.total));
 
-        // Process faturamento by user
         const faturamentoMap: Record<string, FaturamentoByUser> = {};
         subordinates.forEach(sub => {
           const meta = metasData?.find((m: any) => {
@@ -114,10 +179,10 @@ export default function GestaoRelatorios() {
             return metaUserId === sub.id;
           });
           const leads = leadsMap[sub.id];
-          
+
           const metaClientes = meta?.meta_clientes || 0;
           const metaValor = Number(meta?.meta_valor) || 0;
-          
+
           faturamentoMap[sub.id] = {
             userId: sub.id,
             userName: sub.nome,
@@ -141,7 +206,6 @@ export default function GestaoRelatorios() {
     fetchData();
   }, [subordinates, subsLoading, mes, ano]);
 
-  // Chart data
   const leadsChartData = useMemo(() => {
     return leadsByUser.slice(0, 10).map(item => ({
       name: item.userName.split(' ')[0],
@@ -165,7 +229,7 @@ export default function GestaoRelatorios() {
         totals[Number(funil)] = (totals[Number(funil)] || 0) + count;
       });
     });
-    
+
     return Object.entries(totals).map(([funil, count]) => {
       const stage = FUNIL.find(s => s.id === Number(funil));
       return {
@@ -176,17 +240,11 @@ export default function GestaoRelatorios() {
     });
   }, [leadsByUser]);
 
-  const getProgressColor = (value: number) => {
-    if (value >= 100) return 'text-green-600';
-    if (value >= 70) return 'text-yellow-600';
-    return 'text-red-600';
-  };
-
   const exportToCSV = (data: any[], filename: string) => {
     const headers = Object.keys(data[0] || {}).join(',');
-    const rows = data.map(row => Object.values(row).join(','));
-    const csv = [headers, ...rows].join('\n');
-    
+    const rowsArr = data.map(row => Object.values(row).join(','));
+    const csv = [headers, ...rowsArr].join('\n');
+
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -196,21 +254,9 @@ export default function GestaoRelatorios() {
     URL.revokeObjectURL(url);
   };
 
-  if (isLoading || subsLoading) {
-    return (
-      <div className="space-y-6">
-        <Skeleton className="h-10 w-64" />
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {[1, 2, 3].map(i => <Skeleton key={i} className="h-32" />)}
-        </div>
-        <Skeleton className="h-96" />
-      </div>
-    );
-  }
-
   return (
-    <div className="space-y-6">
-      {/* Header */}
+    <div className="space-y-6 animate-in fade-in duration-500">
+      {/* Header - Static */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Relatórios</h1>
@@ -240,296 +286,283 @@ export default function GestaoRelatorios() {
         </div>
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-primary/10">
-                <Users className="h-5 w-5 text-primary" />
-              </div>
-              <div>
-                <div className="text-2xl font-bold text-foreground">
-                  {leadsByUser.reduce((acc, u) => acc + u.total, 0)}
-                </div>
-                <div className="text-sm text-muted-foreground">Total de Leads</div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-green-100">
-                <TrendingUp className="h-5 w-5 text-green-600" />
-              </div>
-              <div>
-                <div className="text-2xl font-bold text-foreground">
-                  {leadsByUser.reduce((acc, u) => acc + u.credenciados, 0)}
-                </div>
-                <div className="text-sm text-muted-foreground">Credenciados</div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-blue-100">
-                <BarChart3 className="h-5 w-5 text-blue-600" />
-              </div>
-              <div>
-                <div className="text-2xl font-bold text-foreground">
-                  {formatCurrency(faturamentoByUser.reduce((acc, u) => acc + u.tpvTotal, 0))}
-                </div>
-                <div className="text-sm text-muted-foreground">TPV Total</div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg bg-purple-100">
-                <Users className="h-5 w-5 text-purple-600" />
-              </div>
-              <div>
-                <div className="text-2xl font-bold text-foreground">{subordinates.length}</div>
-                <div className="text-sm text-muted-foreground">Comerciais</div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      {isLoading || subsLoading ? (
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            {[1, 2, 3, 4].map(i => (
+              <Card key={i}>
+                <CardContent className="p-4 flex items-center gap-3">
+                  <Skeleton className="h-9 w-9 rounded-lg" />
+                  <div className="space-y-2">
+                    <Skeleton className="h-7 w-16" />
+                    <Skeleton className="h-3 w-20" />
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
 
-      {/* Tabs */}
-      <Tabs defaultValue="leads" className="space-y-6">
-        <TabsList>
-          <TabsTrigger value="leads">Leads por Comercial</TabsTrigger>
-          <TabsTrigger value="faturamento">Faturamento por Comercial</TabsTrigger>
-          <TabsTrigger value="funil">Distribuição do Funil</TabsTrigger>
-        </TabsList>
-
-        {/* Leads por Comercial */}
-        <TabsContent value="leads" className="space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="space-y-4">
+            <div className="flex gap-2">
+              <Skeleton className="h-10 w-32" />
+              <Skeleton className="h-10 w-40" />
+              <Skeleton className="h-10 w-36" />
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <Card className="h-96">
+                <CardHeader><Skeleton className="h-6 w-48" /><Skeleton className="h-4 w-64" /></CardHeader>
+                <CardContent><Skeleton className="h-64 w-full" /></CardContent>
+              </Card>
+              <Card className="h-96">
+                <CardHeader><Skeleton className="h-6 w-48" /><Skeleton className="h-4 w-64" /></CardHeader>
+                <CardContent><Skeleton className="h-64 w-full" /></CardContent>
+              </Card>
+            </div>
+          </div>
+        </>
+      ) : (
+        <>
+          {/* Summary Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Leads por Comercial</CardTitle>
-                <CardDescription>Top 10 comerciais por quantidade de leads</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="h-80">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={leadsChartData} layout="vertical">
-                      <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} />
-                      <XAxis type="number" />
-                      <YAxis dataKey="name" type="category" width={80} tick={{ fontSize: 12 }} />
-                      <Tooltip />
-                      <Bar dataKey="leads" name="Leads" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
-                      <Bar dataKey="credenciados" name="Credenciados" fill="hsl(142 76% 36%)" radius={[0, 4, 4, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-primary/10">
+                    <Users className="h-5 w-5 text-primary" />
+                  </div>
+                  <div>
+                    <div className="text-2xl font-bold text-foreground">
+                      {leadsByUser.reduce((acc, u) => acc + u.total, 0)}
+                    </div>
+                    <div className="text-sm text-muted-foreground">Total de Leads</div>
+                  </div>
                 </div>
               </CardContent>
             </Card>
-
             <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <div>
-                  <CardTitle className="text-lg">Tabela Detalhada</CardTitle>
-                  <CardDescription>Todos os comerciais e seus leads</CardDescription>
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-green-100">
+                    <TrendingUp className="h-5 w-5 text-green-600" />
+                  </div>
+                  <div>
+                    <div className="text-2xl font-bold text-foreground">
+                      {leadsByUser.reduce((acc, u) => acc + u.credenciados, 0)}
+                    </div>
+                    <div className="text-sm text-muted-foreground">Credenciados</div>
+                  </div>
                 </div>
-                <Button variant="outline" size="sm" onClick={() => exportToCSV(leadsByUser.map(u => ({
-                  Comercial: u.userName,
-                  Total: u.total,
-                  Credenciados: u.credenciados,
-                  TPV: u.tpvTotal,
-                })), 'leads-por-comercial')}>
-                  <Download className="h-4 w-4 mr-2" />
-                  Exportar
-                </Button>
-              </CardHeader>
-              <CardContent className="p-0">
-                <div className="max-h-80 overflow-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Comercial</TableHead>
-                        <TableHead className="text-right">Leads</TableHead>
-                        <TableHead className="text-right">Credenciados</TableHead>
-                        <TableHead className="text-right">Conversão</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {leadsByUser.map((user) => (
-                        <TableRow key={user.userId}>
-                          <TableCell className="font-medium">{user.userName}</TableCell>
-                          <TableCell className="text-right">{user.total}</TableCell>
-                          <TableCell className="text-right">
-                            <Badge variant="secondary" className="bg-green-100 text-green-800">
-                              {user.credenciados}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-right">
-                            {user.total > 0 ? ((user.credenciados / user.total) * 100).toFixed(1) : 0}%
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-blue-100">
+                    <BarChart3 className="h-5 w-5 text-blue-600" />
+                  </div>
+                  <div>
+                    <div className="text-2xl font-bold text-foreground">
+                      {formatCurrency(faturamentoByUser.reduce((acc, u) => acc + u.tpvTotal, 0))}
+                    </div>
+                    <div className="text-sm text-muted-foreground">TPV Total</div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 rounded-lg bg-purple-100">
+                    <Users className="h-5 w-5 text-purple-600" />
+                  </div>
+                  <div>
+                    <div className="text-2xl font-bold text-foreground">{subordinates.length}</div>
+                    <div className="text-sm text-muted-foreground">Comerciais</div>
+                  </div>
                 </div>
               </CardContent>
             </Card>
           </div>
-        </TabsContent>
 
-        {/* Faturamento por Comercial */}
-        <TabsContent value="faturamento" className="space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">TPV por Comercial</CardTitle>
-                <CardDescription>Top 10 comerciais por valor faturado</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="h-80">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={faturamentoChartData} layout="vertical">
-                      <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} />
-                      <XAxis type="number" tickFormatter={(v) => `R$ ${(v / 1000).toFixed(0)}k`} />
-                      <YAxis dataKey="name" type="category" width={80} tick={{ fontSize: 12 }} />
-                      <Tooltip formatter={(value: number) => formatCurrency(value)} />
-                      <Bar dataKey="tpv" name="TPV Realizado" fill="#F58320" radius={[0, 4, 4, 0]} />
-                      <Bar dataKey="meta" name="Meta" fill="#3b82f6" radius={[0, 4, 4, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </CardContent>
-            </Card>
+          {/* Tabs */}
+          <Tabs defaultValue="leads" className="space-y-6">
+            <TabsList>
+              <TabsTrigger value="leads">Leads por Comercial</TabsTrigger>
+              <TabsTrigger value="faturamento">Faturamento por Comercial</TabsTrigger>
+              <TabsTrigger value="funil">Distribuição do Funil</TabsTrigger>
+            </TabsList>
 
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between">
-                <div>
-                  <CardTitle className="text-lg">Atingimento de Metas</CardTitle>
-                  <CardDescription>Performance vs metas definidas</CardDescription>
-                </div>
-                <Button variant="outline" size="sm" onClick={() => exportToCSV(faturamentoByUser.map(u => ({
-                  Comercial: u.userName,
-                  Credenciados: u.totalCredenciados,
-                  'Meta Clientes': u.metaClientes,
-                  'Atingimento Clientes': `${u.atingimentoClientes.toFixed(1)}%`,
-                  TPV: u.tpvTotal,
-                  'Meta Valor': u.metaValor,
-                  'Atingimento Valor': `${u.atingimentoValor.toFixed(1)}%`,
-                })), 'faturamento-por-comercial')}>
-                  <Download className="h-4 w-4 mr-2" />
-                  Exportar
-                </Button>
-              </CardHeader>
-              <CardContent className="p-0">
-                <div className="max-h-80 overflow-auto">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Comercial</TableHead>
-                        <TableHead className="text-right">TPV</TableHead>
-                        <TableHead className="text-right">Meta Valor</TableHead>
-                        <TableHead className="text-right">Atingimento</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {faturamentoByUser.map((user) => (
-                        <TableRow key={user.userId}>
-                          <TableCell className="font-medium">{user.userName}</TableCell>
-                          <TableCell className="text-right">{formatCurrency(user.tpvTotal)}</TableCell>
-                          <TableCell className="text-right text-muted-foreground">
-                            {formatCurrency(user.metaValor)}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <div className="flex items-center justify-end gap-2">
-                              <Progress 
-                                value={Math.min(user.atingimentoValor, 100)} 
-                                className="w-16 h-2"
-                              />
-                              <span className={`text-sm font-medium ${getProgressColor(user.atingimentoValor)}`}>
-                                {user.atingimentoValor.toFixed(0)}%
-                              </span>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
+            <TabsContent value="leads" className="space-y-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Leads por Comercial</CardTitle>
+                    <CardDescription>Top 10 comerciais por quantidade de leads</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="h-80">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={leadsChartData} layout="vertical">
+                          <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} />
+                          <XAxis type="number" />
+                          <YAxis dataKey="name" type="category" width={80} tick={{ fontSize: 12 }} />
+                          <Tooltip />
+                          <Bar dataKey="leads" name="Leads" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
+                          <Bar dataKey="credenciados" name="Credenciados" fill="hsl(142 76% 36%)" radius={[0, 4, 4, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </CardContent>
+                </Card>
 
-        {/* Distribuição do Funil */}
-        <TabsContent value="funil" className="space-y-6">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Distribuição do Funil</CardTitle>
-                <CardDescription>Leads por etapa do funil de vendas</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="h-80">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={funilDistribution}
-                        cx="50%"
-                        cy="50%"
-                        outerRadius={100}
-                        dataKey="value"
-                        label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
-                        labelLine={true}
-                      >
-                        {funilDistribution.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
-                      </Pie>
-                      <Tooltip />
-                      <Legend />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Detalhamento por Etapa</CardTitle>
-                <CardDescription>Quantidade de leads em cada etapa</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {funilDistribution.map((stage) => (
-                  <div key={stage.name} className="flex items-center gap-4">
-                    <div 
-                      className="w-4 h-4 rounded-full shrink-0" 
-                      style={{ backgroundColor: stage.color }}
-                    />
-                    <div className="flex-1">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="font-medium text-foreground">{stage.name}</span>
-                        <span className="text-muted-foreground">{stage.value} leads</span>
-                      </div>
-                      <Progress 
-                        value={(stage.value / Math.max(...funilDistribution.map(s => s.value))) * 100} 
-                        className="h-2"
-                        style={{ '--progress-color': stage.color } as any}
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between">
+                    <div>
+                      <CardTitle className="text-lg">Tabela Detalhada</CardTitle>
+                      <CardDescription>Todos os comerciais e seus leads</CardDescription>
+                    </div>
+                    <Button variant="outline" size="sm" onClick={() => exportToCSV(leadsByUser.map(u => ({
+                      Comercial: u.userName,
+                      Total: u.total,
+                      Credenciados: u.credenciados,
+                      TPV: u.tpvTotal,
+                    })), 'leads-por-comercial')}>
+                      <Download className="h-4 w-4 mr-2" />
+                      Exportar
+                    </Button>
+                  </CardHeader>
+                  <CardContent className="p-0">
+                    <div className="max-h-80 overflow-auto">
+                      <DataTable
+                        columns={leadsColumns}
+                        data={leadsByUser}
+                        emptyMessage="Nenhum dado de leads disponível."
                       />
                     </div>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
-      </Tabs>
+                  </CardContent>
+                </Card>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="faturamento" className="space-y-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">TPV por Comercial</CardTitle>
+                    <CardDescription>Top 10 comerciais por valor faturado</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="h-80">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={faturamentoChartData} layout="vertical">
+                          <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} />
+                          <XAxis type="number" tickFormatter={(v) => `R$ ${(v / 1000).toFixed(0)}k`} />
+                          <YAxis dataKey="name" type="category" width={80} tick={{ fontSize: 12 }} />
+                          <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                          <Bar dataKey="tpv" name="TPV Realizado" fill="#F58320" radius={[0, 4, 4, 0]} />
+                          <Bar dataKey="meta" name="Meta" fill="#3b82f6" radius={[0, 4, 4, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between">
+                    <div>
+                      <CardTitle className="text-lg">Atingimento de Metas</CardTitle>
+                      <CardDescription>Performance vs metas definidas</CardDescription>
+                    </div>
+                    <Button variant="outline" size="sm" onClick={() => exportToCSV(faturamentoByUser.map(u => ({
+                      Comercial: u.userName,
+                      Credenciados: u.totalCredenciados,
+                      'Meta Clientes': u.metaClientes,
+                      'Atingimento Clientes': `${u.atingimentoClientes.toFixed(1)}%`,
+                      TPV: u.tpvTotal,
+                      'Meta Valor': u.metaValor,
+                      'Atingimento Valor': `${u.atingimentoValor.toFixed(1)}%`,
+                    })), 'faturamento-por-comercial')}>
+                      <Download className="h-4 w-4 mr-2" />
+                      Exportar
+                    </Button>
+                  </CardHeader>
+                  <CardContent className="p-0">
+                    <div className="max-h-80 overflow-auto">
+                      <DataTable
+                        columns={faturamentoColumns}
+                        data={faturamentoByUser}
+                        emptyMessage="Nenhum dado de faturamento disponível."
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="funil" className="space-y-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Distribuição do Funil</CardTitle>
+                    <CardDescription>Leads por etapa do funil de vendas</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="h-80">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={funilDistribution}
+                            cx="50%"
+                            cy="50%"
+                            outerRadius={100}
+                            dataKey="value"
+                            label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
+                            labelLine={true}
+                          >
+                            {funilDistribution.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={entry.color} />
+                            ))}
+                          </Pie>
+                          <Tooltip />
+                          <Legend />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Detalhamento por Etapa</CardTitle>
+                    <CardDescription>Quantidade de leads em cada etapa</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {funilDistribution.map((stage) => (
+                      <div key={stage.name} className="flex items-center gap-4">
+                        <div
+                          className="w-4 h-4 rounded-full shrink-0"
+                          style={{ backgroundColor: stage.color }}
+                        />
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="font-medium text-foreground">{stage.name}</span>
+                            <span className="text-muted-foreground">{stage.value} leads</span>
+                          </div>
+                          <Progress
+                            value={(stage.value / Math.max(...funilDistribution.map(s => s.value))) * 100}
+                            className="h-2"
+                            style={{ '--progress-color': stage.color } as any}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
+              </div>
+            </TabsContent>
+          </Tabs>
+        </>
+      )}
     </div>
   );
 }

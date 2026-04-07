@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Plus, Search, UserPlus, Mail, Phone, MapPin, MoreHorizontal, Edit, Trash2 } from 'lucide-react';
+import { Plus, Search, UserPlus, Mail, Phone, MapPin, MoreHorizontal, Edit, Trash2, FlaskConical } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -16,6 +16,9 @@ import { toast } from 'sonner';
 import { z } from 'zod';
 import { validatePhone } from '@/lib/validators';
 import { BR_STATES } from '@/lib/brazil';
+import { ColumnDef } from '@tanstack/react-table';
+import { DataTable, SortableHeader } from '@/components/ui/data-table';
+import { Switch } from '@/components/ui/switch';
 
 // Schema de validação do formulário
 const createUserSchema = z.object({
@@ -56,6 +59,8 @@ const roleColors: Record<string, string> = {
   logistica: 'bg-amber-100 text-amber-800',
 };
 
+type Subordinate = ReturnType<typeof useSubordinates>['subordinates'][number];
+
 export default function GestaoComerciais() {
   const [search, setSearch] = useState('');
   const [formOpen, setFormOpen] = useState(false);
@@ -66,7 +71,8 @@ export default function GestaoComerciais() {
     telefone: '',
     regiao: '',
     role: 'comercial' as string,
-    senha: '', // Senha vazia por padrão
+    senha: '',
+    includeInStats: true,
   });
   const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -132,9 +138,10 @@ export default function GestaoComerciais() {
       const dataToSend: any = {
         name: validation.data.nome,
         email: validation.data.email,
-        phone: formData.telefone, // Backend expects phone
-        region: formData.regiao, // Backend expects region
-        role: formData.role
+        phone: formData.telefone || null,
+        region: formData.regiao || null,
+        role: formData.role,
+        includeInStats: formData.includeInStats,
       };
 
       // Only include password if it was actually provided in the form (not the dummy one)
@@ -152,7 +159,7 @@ export default function GestaoComerciais() {
 
       if (success) {
         setFormOpen(false);
-        setFormData({ nome: '', email: '', telefone: '', regiao: '', role: 'comercial', senha: '' });
+        setFormData({ nome: '', email: '', telefone: '', regiao: '', role: 'comercial', senha: '', includeInStats: true });
         setFormErrors({});
       }
     } catch (error: any) {
@@ -165,84 +172,115 @@ export default function GestaoComerciais() {
 
   const handleDeleteUser = async (userId: string, userName: string) => {
     if (!confirm(`Tem certeza que deseja excluir ${userName}?`)) return;
-
     await deleteUser(userId);
   };
 
-  if (isLoading) {
-    return (
-      <div className="space-y-6">
-        {/* Header Skeleton */}
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="space-y-2">
-            <Skeleton className="h-8 w-64" />
-            <Skeleton className="h-4 w-48" />
-          </div>
-          <Skeleton className="h-10 w-40" />
+  const columns: ColumnDef<Subordinate>[] = [
+    {
+      accessorKey: 'nome',
+      header: ({ column }) => <SortableHeader column={column}>Nome</SortableHeader>,
+      cell: ({ row }) => <span className="font-medium">{row.original.nome}</span>,
+    },
+    {
+      accessorKey: 'email',
+      header: 'Email',
+      enableSorting: false,
+      cell: ({ row }) => (
+        <div className="flex items-center gap-2 text-muted-foreground">
+          <Mail className="h-4 w-4" />
+          {row.original.email || '-'}
         </div>
-
-        {/* Stats Cards Skeleton */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          {[1, 2, 3, 4].map((i) => (
-            <Card key={i}>
-              <CardContent className="p-4 space-y-2">
-                <Skeleton className="h-8 w-16" />
-                <Skeleton className="h-4 w-24" />
-              </CardContent>
-            </Card>
-          ))}
+      ),
+    },
+    {
+      accessorKey: 'telefone',
+      header: 'Telefone',
+      enableSorting: false,
+      cell: ({ row }) => (
+        <div className="flex items-center gap-2 text-muted-foreground">
+          <Phone className="h-4 w-4" />
+          {row.original.telefone || '-'}
         </div>
-
-        {/* Search and Table Skeleton */}
-        <Card>
-          <CardHeader className="pb-4">
-            <Skeleton className="h-10 w-full max-w-sm" />
-          </CardHeader>
-          <CardContent className="p-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  {[1, 2, 3, 4, 5, 6].map((i) => (
-                    <TableHead key={i}>
-                      <Skeleton className="h-4 w-16" />
-                    </TableHead>
-                  ))}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {[1, 2, 3, 4, 5].map((i) => (
-                  <TableRow key={i}>
-                    <TableCell>
-                      <Skeleton className="h-4 w-32" />
-                    </TableCell>
-                    <TableCell>
-                      <Skeleton className="h-4 w-40" />
-                    </TableCell>
-                    <TableCell>
-                      <Skeleton className="h-4 w-32" />
-                    </TableCell>
-                    <TableCell>
-                      <Skeleton className="h-4 w-24" />
-                    </TableCell>
-                    <TableCell>
-                      <Skeleton className="h-6 w-20 rounded-full" />
-                    </TableCell>
-                    <TableCell>
-                      <Skeleton className="h-8 w-8" />
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
+      ),
+    },
+    {
+      accessorKey: 'regiao',
+      header: ({ column }) => <SortableHeader column={column}>Região</SortableHeader>,
+      cell: ({ row }) => row.original.regiao ? (
+        <div className="flex items-center gap-2">
+          <MapPin className="h-4 w-4 text-muted-foreground" />
+          {row.original.regiao}
+        </div>
+      ) : <span className="text-muted-foreground">-</span>,
+    },
+    {
+      accessorKey: 'role',
+      header: ({ column }) => <SortableHeader column={column}>Cargo</SortableHeader>,
+      cell: ({ row }) => (
+        <Badge className={roleColors[row.original.role] || 'bg-gray-100 text-gray-800'}>
+          {roleLabels[row.original.role] || row.original.role}
+        </Badge>
+      ),
+    },
+    {
+      id: 'includeInStats',
+      accessorFn: (row) => row.includeInStats,
+      header: ({ column }) => <SortableHeader column={column} className="mx-auto">Status</SortableHeader>,
+      cell: ({ row }) => (
+        <div className="flex justify-center">
+          {row.original.includeInStats ? (
+            <Badge className="bg-emerald-100 text-emerald-800">Ativo</Badge>
+          ) : (
+            <Badge className="bg-amber-100 text-amber-800 flex items-center gap-1">
+              <FlaskConical className="h-3 w-3" />
+              Desativado
+            </Badge>
+          )}
+        </div>
+      ),
+    },
+    {
+      id: 'acoes',
+      header: '',
+      enableSorting: false,
+      size: 50,
+      cell: ({ row }) => (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" size="icon">
+              <MoreHorizontal className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => {
+              setEditingId(row.original.id);
+              setFormData({
+                nome: row.original.nome,
+                email: row.original.email,
+                telefone: row.original.telefone || '',
+                regiao: row.original.regiao || '',
+                role: row.original.role,
+                senha: '',
+                includeInStats: row.original.includeInStats,
+              });
+              setFormOpen(true);
+            }}>
+              <Edit className="h-4 w-4 mr-2" />
+              Editar
+            </DropdownMenuItem>
+            <DropdownMenuItem className="text-destructive" onClick={() => handleDeleteUser(row.original.id, row.original.nome)}>
+              <Trash2 className="h-4 w-4 mr-2" />
+              Excluir
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ),
+    },
+  ];
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
+    <div className="space-y-6 animate-in fade-in duration-500">
+      {/* Header - Static */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Representantes Comerciais</h1>
@@ -254,38 +292,24 @@ export default function GestaoComerciais() {
         </Button>
       </div>
 
-      {/* Stats Cards */}
+      {/* Stats Cards — labels always visible, values skeleton when loading */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="p-4">
-            <div className="text-2xl font-bold text-foreground">{subordinates.length}</div>
-            <div className="text-sm text-muted-foreground">Total</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="text-2xl font-bold text-blue-600">
-              {subordinates.filter(s => s.role === 'comercial').length}
-            </div>
-            <div className="text-sm text-muted-foreground">Comerciais</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="text-2xl font-bold text-purple-600">
-              {subordinates.filter(s => s.role === 'regional').length}
-            </div>
-            <div className="text-sm text-muted-foreground">Regionais</div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="text-2xl font-bold text-orange-600">
-              {subordinates.filter(s => s.role === 'nacional').length}
-            </div>
-            <div className="text-sm text-muted-foreground">Nacionais</div>
-          </CardContent>
-        </Card>
+        {[
+          { label: 'Total', color: 'text-foreground', value: subordinates.length },
+          { label: 'Comerciais', color: 'text-blue-600', value: subordinates.filter(s => s.role === 'comercial').length },
+          { label: 'Regionais', color: 'text-purple-600', value: subordinates.filter(s => s.role === 'regional').length },
+          { label: 'Nacionais', color: 'text-orange-600', value: subordinates.filter(s => s.role === 'nacional').length },
+        ].map(({ label, color, value }) => (
+          <Card key={label}>
+            <CardContent className="p-4">
+              {isLoading
+                ? <Skeleton className="h-8 w-12 mb-1" />
+                : <div className={`text-2xl font-bold ${color}`}>{value}</div>
+              }
+              <div className="text-sm text-muted-foreground">{label}</div>
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
       {/* Search and Table */}
@@ -299,100 +323,42 @@ export default function GestaoComerciais() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="pl-9"
+                disabled={isLoading}
               />
             </div>
           </div>
         </CardHeader>
         <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Nome</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Telefone</TableHead>
-                <TableHead>Região</TableHead>
-                <TableHead>Cargo</TableHead>
-                <TableHead className="w-12"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredData.length === 0 ? (
+          {isLoading ? (
+            <Table>
+              <TableHeader>
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
-                    {search ? 'Nenhum representante encontrado com este filtro' : 'Nenhum representante cadastrado'}
-                  </TableCell>
+                  {['Nome', 'Email', 'Telefone', 'Região', 'Cargo', 'Status', ''].map((h, i) => (
+                    <TableHead key={i}>{h}</TableHead>
+                  ))}
                 </TableRow>
-              ) : (
-                filteredData.map((user) => (
-                  <TableRow key={user.id}>
-                    <TableCell className="font-medium">{user.nome}</TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2 text-muted-foreground">
-                        <Mail className="h-4 w-4" />
-                        {user.email || '-'}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2 text-muted-foreground">
-                        <Phone className="h-4 w-4" />
-                        {user.telefone || '-'}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      {user.regiao ? (
-                        <div className="flex items-center gap-2">
-                          <MapPin className="h-4 w-4 text-muted-foreground" />
-                          {user.regiao}
-                        </div>
-                      ) : (
-                        <span className="text-muted-foreground">-</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Badge className={roleColors[user.role] || 'bg-gray-100 text-gray-800'}>
-                        {roleLabels[user.role] || user.role}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem
-                            onClick={() => {
-                              setEditingId(user.id);
-                              setFormData({
-                                nome: user.nome,
-                                email: user.email,
-                                telefone: user.telefone || '',
-                                regiao: user.regiao || '',
-                                role: user.role,
-                                senha: '', // Senha vazia na edição
-                              });
-                              setFormOpen(true);
-                            }}
-                          >
-                            <Edit className="h-4 w-4 mr-2" />
-                            Editar
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            className="text-destructive"
-                            onClick={() => handleDeleteUser(user.id, user.nome)}
-                          >
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            Excluir
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
+              </TableHeader>
+              <TableBody>
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <TableRow key={i}>
+                    <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-40" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-28" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                    <TableCell><Skeleton className="h-6 w-20 rounded-full" /></TableCell>
+                    <TableCell><Skeleton className="h-6 w-14 rounded-full" /></TableCell>
+                    <TableCell><Skeleton className="h-8 w-8 rounded-md" /></TableCell>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
+                ))}
+              </TableBody>
+            </Table>
+          ) : (
+            <DataTable
+              columns={columns}
+              data={filteredData}
+              emptyMessage={search ? 'Nenhum representante encontrado com este filtro' : 'Nenhum representante cadastrado'}
+            />
+          )}
         </CardContent>
       </Card>
 
@@ -401,7 +367,7 @@ export default function GestaoComerciais() {
         if (!open) {
           setFormOpen(false);
           setEditingId(null);
-          setFormData({ nome: '', email: '', telefone: '', regiao: '', role: 'comercial', senha: '' });
+          setFormData({ nome: '', email: '', telefone: '', regiao: '', role: 'comercial', senha: '', includeInStats: true });
           setFormErrors({});
         } else {
           setFormOpen(true);
@@ -529,11 +495,22 @@ export default function GestaoComerciais() {
                 </Select>
               </div>
             )}
+            <div className="flex items-center justify-between rounded-lg border border-border p-3">
+              <div>
+                <p className="text-sm font-medium">Incluir no cálculo de gestão</p>
+                <p className="text-xs text-muted-foreground">Desative para usuários de teste</p>
+              </div>
+              <Switch
+                checked={formData.includeInStats}
+                onCheckedChange={(val) => setFormData({ ...formData, includeInStats: val })}
+              />
+            </div>
+
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => {
                 setFormOpen(false);
                 setEditingId(null);
-                setFormData({ nome: '', email: '', telefone: '', regiao: '', role: 'comercial', senha: '' });
+                setFormData({ nome: '', email: '', telefone: '', regiao: '', role: 'comercial', senha: '', includeInStats: true });
                 setFormErrors({});
               }}>
                 Cancelar

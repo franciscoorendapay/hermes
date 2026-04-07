@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { api } from '@/shared/api/http';
 import { toast } from 'sonner';
 import { Reminder } from './useReminders';
+import { format } from 'date-fns';
 
 export interface RouteItem {
   id: number;
@@ -26,7 +27,7 @@ export function useRoutes(enabled: boolean = true) {
 
     setLoading(true);
     try {
-      const dateStr = date.toISOString().split('T')[0];
+      const dateStr = format(date, 'yyyy-MM-dd');
       const response = await api.get(`/visit-routes?date=${dateStr}`);
 
       if (response.data && response.data.length > 0) {
@@ -47,7 +48,7 @@ export function useRoutes(enabled: boolean = true) {
 
     setLoading(true);
     try {
-      const dateStr = date.toISOString().split('T')[0];
+      const dateStr = format(date, 'yyyy-MM-dd');
       const items = reminderIds.map((id, index) => ({
         reminderId: id,
         sequence: index

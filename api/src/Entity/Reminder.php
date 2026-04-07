@@ -253,4 +253,14 @@ class Reminder
     {
         return $this->user?->getId();
     }
+
+    #[Groups(['reminder:read'])]
+    #[SerializedName('lead_id')]
+    public function getLeadId(): ?string
+    {
+        if ($this->lead) {
+            return (string) $this->lead->getId();
+        }
+        return null;
+    }
 }

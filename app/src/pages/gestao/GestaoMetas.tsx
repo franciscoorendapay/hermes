@@ -6,8 +6,18 @@ import { useSubordinates } from '@/hooks/useSubordinates';
 import { useGestaoMetas } from '@/hooks/useGestaoMetas';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
+import { ColumnDef } from '@tanstack/react-table';
+import { DataTable, SortableHeader } from '@/components/ui/data-table';
 
 const monthNames = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+
+interface MetaRow {
+  id: string;
+  nome: string;
+  meta_clientes?: number;
+  meta_valor?: string | number;
+  meta_visitas?: number;
+}
 
 export default function GestaoMetas() {
   const [formOpen, setFormOpen] = useState(false);
@@ -35,7 +45,56 @@ export default function GestaoMetas() {
     setFormOpen(true);
   };
 
-  if (isLoading || subsLoading) return <Skeleton className="h-96" />;
+  const isDataLoading = isLoading || subsLoading;
+
+  const rows: MetaRow[] = subordinates.map(sub => {
+    const meta = metas.find(m => m.user_id === sub.id);
+    return {
+      id: sub.id,
+      nome: sub.nome,
+      meta_clientes: meta?.meta_clientes,
+      meta_valor: meta?.meta_valor,
+      meta_visitas: meta?.meta_visitas,
+    };
+  });
+
+  const columns: ColumnDef<MetaRow>[] = [
+    {
+      accessorKey: 'nome',
+      header: ({ column }) => <SortableHeader column={column}>Comercial</SortableHeader>,
+      cell: ({ row }) => <span className="font-medium">{row.original.nome}</span>,
+    },
+    {
+      accessorKey: 'meta_clientes',
+      header: ({ column }) => <SortableHeader column={column} className="ml-auto">Meta Clientes</SortableHeader>,
+      cell: ({ row }) => <div className="text-right">{row.original.meta_clientes ?? '-'}</div>,
+    },
+    {
+      accessorKey: 'meta_valor',
+      header: ({ column }) => <SortableHeader column={column} className="ml-auto">Meta TPV</SortableHeader>,
+      cell: ({ row }) => (
+        <div className="text-right">
+          {row.original.meta_valor ? formatCurrency(Number(row.original.meta_valor)) : '-'}
+        </div>
+      ),
+    },
+    {
+      accessorKey: 'meta_visitas',
+      header: ({ column }) => <SortableHeader column={column} className="ml-auto">Meta Visitas</SortableHeader>,
+      cell: ({ row }) => <div className="text-right">{row.original.meta_visitas ?? '-'}</div>,
+    },
+    {
+      id: 'acoes',
+      header: '',
+      enableSorting: false,
+      size: 50,
+      cell: ({ row }) => (
+        <Button variant="ghost" size="icon" onClick={() => handleEdit(row.original.id)}>
+          <Edit className="h-4 w-4" />
+        </Button>
+      ),
+    },
+  ];
 
   return (
     <div className="space-y-6">
@@ -56,37 +115,40 @@ export default function GestaoMetas() {
         <Button variant="outline" size="icon" onClick={nextMonth}><ChevronRight className="h-4 w-4" /></Button>
       </div>
 
-      <div className="bg-card border border-border rounded-xl overflow-x-auto">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Comercial</TableHead>
-              <TableHead className="text-right">Meta Clientes</TableHead>
-              <TableHead className="text-right">Meta TPV</TableHead>
-              <TableHead className="text-right">Meta Visitas</TableHead>
-              <TableHead className="w-[50px]"></TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {subordinates.map((sub) => {
-              const meta = metas.find(m => m.user_id === sub.id);
-              return (
-                <TableRow key={sub.id}>
-                  <TableCell className="font-medium">{sub.nome}</TableCell>
-                  <TableCell className="text-right">{meta?.meta_clientes ?? '-'}</TableCell>
-                  <TableCell className="text-right">{meta?.meta_valor ? formatCurrency(Number(meta.meta_valor)) : '-'}</TableCell>
-                  <TableCell className="text-right">{meta?.meta_visitas ?? '-'}</TableCell>
-                  <TableCell>
-                    <Button variant="ghost" size="icon" onClick={() => handleEdit(sub.id)}>
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                  </TableCell>
+      {isDataLoading ? (
+        <div className="bg-card border border-border rounded-xl overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Comercial</TableHead>
+                <TableHead className="text-right">Meta Clientes</TableHead>
+                <TableHead className="text-right">Meta TPV</TableHead>
+                <TableHead className="text-right">Meta Visitas</TableHead>
+                <TableHead className="w-[50px]"></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {Array.from({ length: 5 }).map((_, i) => (
+                <TableRow key={i}>
+                  <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                  <TableCell className="text-right"><Skeleton className="h-4 w-12 ml-auto" /></TableCell>
+                  <TableCell className="text-right"><Skeleton className="h-4 w-24 ml-auto" /></TableCell>
+                  <TableCell className="text-right"><Skeleton className="h-4 w-12 ml-auto" /></TableCell>
+                  <TableCell><Skeleton className="h-8 w-8 ml-auto rounded-md" /></TableCell>
                 </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
-      </div>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      ) : (
+        <div className="bg-card border border-border rounded-xl overflow-x-auto">
+          <DataTable
+            columns={columns}
+            data={rows}
+            emptyMessage="Nenhum comercial cadastrado"
+          />
+        </div>
+      )}
 
       <MetaForm
         open={formOpen}

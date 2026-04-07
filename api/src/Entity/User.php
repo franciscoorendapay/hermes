@@ -57,7 +57,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
 
     #[ORM\Column(length: 2, nullable: true)]
     #[Groups(['user:read', 'user:write'])]
-    #[Assert\Choice(choices: ['AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO'])]
+    #[Assert\Choice(choices: ['AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO'], message: 'Estado inválido.')]
     private ?string $region = null;
 
     #[ORM\Column]
@@ -67,6 +67,10 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(type: Types::SMALLINT, options:['default' => 1])]
     #[Groups(['user:read', 'user:write'])]
     private int $status = 1;
+
+    #[ORM\Column(type: 'boolean', options: ['default' => true])]
+    #[Groups(['user:read', 'user:write'])]
+    private bool $includeInStats = true;
 
     public function __construct()
     {
@@ -181,7 +185,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         return $this->phone;
     }
 
-    public function setPhone(string $phone): static
+    public function setPhone(?string $phone): static
     {
         $this->phone = $phone;
 
@@ -208,6 +212,17 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function setStatus(int $status): static
     {
         $this->status = $status;
+        return $this;
+    }
+
+    public function isIncludeInStats(): bool
+    {
+        return $this->includeInStats;
+    }
+
+    public function setIncludeInStats(bool $includeInStats): static
+    {
+        $this->includeInStats = $includeInStats;
         return $this;
     }
 

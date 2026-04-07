@@ -19,9 +19,9 @@ export function FunilOverviewCard({ data, isLoading = false }: FunilOverviewCard
           <div className="space-y-3">
             {[1, 2, 3, 4, 5, 6].map((i) => (
               <div key={i} className="flex items-center gap-3">
-                <div className="w-28 h-4 bg-muted/20 rounded animate-pulse" />
-                <div className="flex-1 h-8 bg-muted/20 rounded-lg animate-pulse" />
-                <div className="w-12 h-4 bg-muted/20 rounded animate-pulse" />
+                <div className="w-28 h-4 bg-muted/40 rounded animate-shimmer shimmer-gradient" />
+                <div className="flex-1 h-8 bg-muted/30 rounded-lg animate-shimmer shimmer-gradient" />
+                <div className="w-12 h-4 bg-muted/40 rounded animate-shimmer shimmer-gradient" />
               </div>
             ))}
           </div>

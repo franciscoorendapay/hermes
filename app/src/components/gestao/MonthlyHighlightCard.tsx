@@ -32,25 +32,25 @@ interface MonthlyHighlightCardProps {
 export function MonthlyHighlightCard({ users, isLoading = false }: MonthlyHighlightCardProps) {
   if (isLoading) {
     return (
-      <Card className="relative overflow-hidden border-primary/20">
+      <Card className="relative overflow-hidden border-primary/20 bg-muted/5">
         <CardContent className="relative p-6">
           <div className="flex items-center gap-2 mb-4">
-            <div className="h-5 w-5 bg-muted/20 rounded animate-pulse" />
-            <div className="h-4 w-32 bg-muted/20 rounded animate-pulse" />
-            <div className="ml-auto h-6 w-24 bg-muted/20 rounded animate-pulse" />
+            <div className="h-5 w-5 shimmer-gradient animate-shimmer bg-muted/40 rounded" />
+            <div className="h-4 w-32 shimmer-gradient animate-shimmer bg-muted/40 rounded" />
+            <div className="ml-auto h-6 w-24 shimmer-gradient animate-shimmer bg-muted/40 rounded-full" />
           </div>
           <div className="flex items-center gap-6">
-            <div className="h-20 w-20 rounded-full bg-muted/20 animate-pulse" />
+            <div className="h-20 w-20 rounded-full shimmer-gradient animate-shimmer bg-muted/40" />
             <div className="flex-1 space-y-3">
-              <div className="h-8 w-48 bg-muted/20 rounded animate-pulse" />
-              <div className="h-4 w-64 bg-muted/20 rounded animate-pulse" />
+              <div className="h-8 w-48 shimmer-gradient animate-shimmer bg-muted/40 rounded" />
+              <div className="h-4 w-64 shimmer-gradient animate-shimmer bg-muted/40 rounded" />
               <div className="grid grid-cols-3 gap-4">
                 {[1, 2, 3].map(i => (
                   <div key={i} className="flex items-center gap-2">
-                    <div className="h-8 w-8 rounded-lg bg-muted/20 animate-pulse" />
+                    <div className="h-8 w-8 rounded-lg shimmer-gradient animate-shimmer bg-muted/40" />
                     <div className="space-y-1">
-                      <div className="h-5 w-16 bg-muted/20 rounded animate-pulse" />
-                      <div className="h-3 w-10 bg-muted/20 rounded animate-pulse" />
+                      <div className="h-5 w-16 shimmer-gradient animate-shimmer bg-muted/40 rounded" />
+                      <div className="h-3 w-10 shimmer-gradient animate-shimmer bg-muted/40 rounded" />
                     </div>
                   </div>
                 ))}

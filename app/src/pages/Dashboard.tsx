@@ -173,24 +173,6 @@ export default function Dashboard() {
     setShowDetailSheet(true);
   };
 
-  // O AppLayout já cuida da autenticação, mas mantemos loading state
-  if (dashboardLoading && metasLoading) {
-    return (
-      <div className="space-y-4 pb-6">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <Skeleton className="h-5 w-32" />
-            <Skeleton className="h-4 w-24 mt-1" />
-          </div>
-          <Skeleton className="h-10 w-10 rounded-full" />
-        </div>
-        <Skeleton className="h-48 w-full rounded-xl" />
-        <Skeleton className="h-12 w-full rounded-full" />
-        <Skeleton className="h-32 w-full rounded-xl" />
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-4 pb-6">
 
@@ -368,29 +350,22 @@ export default function Dashboard() {
       </Collapsible>
 
       {/* Metas */}
-      {
-        metasLoading ? (
-          <div className="space-y-4">
-            <Skeleton className="h-32 w-full rounded-xl" />
-            <Skeleton className="h-32 w-full rounded-xl" />
-          </div>
-        ) : metas ? (
-          <>
-            <ProgressCard title="Meta do Mês" progress={metas.atingido_valor} progressLabel="Progresso" goal={metas.meta_valor} goalLabel="Meta" formatValue={formatMoney} />
-            <ProgressCard title="Meta de clientes do Mês" progress={metas.atingido_clientes} progressLabel="Progresso" goal={metas.meta_clientes} goalLabel="Meta" />
-          </>
-        ) : (
-          <Card className="bg-white border border-[#E5E5E5] rounded-xl shadow-none">
-            <CardContent className="p-4">
-              <p className="text-sm text-muted-foreground text-center">Nenhuma meta definida</p>
-            </CardContent>
-          </Card>
-        )
-      }
+      {!metasLoading && !metas ? (
+        <Card className="bg-white border border-[#E5E5E5] rounded-xl shadow-none">
+          <CardContent className="p-4">
+            <p className="text-sm text-muted-foreground text-center">Nenhuma meta definida</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-4">
+          <ProgressCard title="Meta do Mês" progress={metas?.atingido_valor ?? 0} progressLabel="Progresso" goal={metas?.meta_valor ?? 0} goalLabel="Meta" formatValue={formatMoney} isLoading={metasLoading} />
+          <ProgressCard title="Meta de clientes do Mês" progress={metas?.atingido_clientes ?? 0} progressLabel="Progresso" goal={metas?.meta_clientes ?? 0} goalLabel="Meta" isLoading={metasLoading} />
+        </div>
+      )}
 
       {/* Estatísticas */}
       <div className="grid gap-4 grid-cols-2">
-        {cardKpi.map((card, idx) => <StatCard key={idx} label={card.label} value={card.value} />)}
+        {cardKpi.map((card, idx) => <StatCard key={idx} label={card.label} value={card.value} isLoading={dashboardLoading} />)}
       </div>
 
       {/* LaunchVisitSheet */}

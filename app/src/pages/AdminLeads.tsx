@@ -1,16 +1,10 @@
 import { useState, useEffect, useMemo } from "react";
+import { ColumnDef } from "@tanstack/react-table";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { DataTable, SortableHeader } from "@/components/ui/data-table";
 import {
   Select,
   SelectContent,
@@ -20,7 +14,7 @@ import {
 } from "@/components/ui/select";
 import { http } from "@/shared/api/http";
 import { toast } from "sonner";
-import { Loader2, Search, Pencil, Users, ChevronLeft, ChevronRight, FileText, User, Image as ImageIcon } from "lucide-react";
+import { Loader2, Search, Pencil, Users, FileText, User, Image as ImageIcon } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { EditLeadAdminDialog } from "@/components/admin/EditLeadAdminDialog";
 
@@ -61,8 +55,6 @@ export default function AdminLeads() {
   const [filterFunnel, setFilterFunnel] = useState<string>("all");
   const [editLead, setEditLead] = useState<LeadData | null>(null);
   const [editOpen, setEditOpen] = useState(false);
-  const [currentPage, setCurrentPage] = useState(1);
-  const ITEMS_PER_PAGE = 30;
 
   const fetchLeads = async () => {
     setLoading(true);
@@ -115,17 +107,6 @@ export default function AdminLeads() {
     });
   }, [leads, searchTerm, filterFunnel]);
 
-  // Reset page when filters change
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchTerm, filterFunnel]);
-
-  const totalPages = Math.ceil(filteredLeads.length / ITEMS_PER_PAGE);
-  const paginatedLeads = useMemo(() => {
-    const start = (currentPage - 1) * ITEMS_PER_PAGE;
-    return filteredLeads.slice(start, start + ITEMS_PER_PAGE);
-  }, [filteredLeads, currentPage]);
-
   const handleEdit = (lead: LeadData) => {
     setEditLead(lead);
     setEditOpen(true);
@@ -141,6 +122,111 @@ export default function AdminLeads() {
     };
     return funnel ? labels[funnel] || `Etapa ${funnel}` : "-";
   };
+
+  const columns: ColumnDef<LeadData>[] = [
+    {
+      accessorKey: 'leadCode',
+      header: 'ID',
+      size: 80,
+      enableSorting: false,
+      cell: ({ row }) => <span className="font-mono text-xs">{row.original.leadCode || '-'}</span>,
+    },
+    {
+      id: 'cliente',
+      accessorFn: (row) => row.tradeName || row.name,
+      header: ({ column }) => <SortableHeader column={column}>Cliente</SortableHeader>,
+      cell: ({ row }) => (
+        <div className="flex flex-col">
+          <span className="font-medium text-sm">{row.original.tradeName || row.original.name}</span>
+          {row.original.tradeName && row.original.name !== row.original.tradeName && (
+            <span className="text-xs text-muted-foreground">{row.original.name}</span>
+          )}
+        </div>
+      ),
+    },
+    {
+      accessorKey: 'document',
+      header: 'Documento',
+      enableSorting: false,
+      cell: ({ row }) => <span className="text-xs">{row.original.document || '-'}</span>,
+    },
+    {
+      accessorKey: 'phone',
+      header: 'Telefone',
+      enableSorting: false,
+      cell: ({ row }) => <span className="text-sm">{row.original.phone || '-'}</span>,
+    },
+    {
+      id: 'cidade',
+      accessorFn: (row) => row.city ? `${row.city}/${row.state || ''}` : '',
+      header: ({ column }) => <SortableHeader column={column}>Cidade/UF</SortableHeader>,
+      cell: ({ row }) => (
+        <span className="text-sm">
+          {row.original.city ? `${row.original.city}/${row.original.state || ''}` : '-'}
+        </span>
+      ),
+    },
+    {
+      id: 'documentos',
+      header: 'Documentos',
+      enableSorting: false,
+      cell: ({ row }) => (
+        <div className="flex gap-1 flex-wrap max-w-[120px]">
+          {row.original.documents ? (
+            <>
+              {row.original.documents.cnpj && <a href={row.original.documents.cnpj} target="_blank" rel="noreferrer" title="CNPJ/Contrato"><FileText className="h-4 w-4 text-green-500 hover:text-green-700 cursor-pointer" /></a>}
+              {row.original.documents.photo && <a href={row.original.documents.photo} target="_blank" rel="noreferrer" title="Foto Antiga"><FileText className="h-4 w-4 text-green-500 hover:text-green-700 cursor-pointer" /></a>}
+              {row.original.documents.residence && <a href={row.original.documents.residence} target="_blank" rel="noreferrer" title="Residência"><FileText className="h-4 w-4 text-green-500 hover:text-green-700 cursor-pointer" /></a>}
+              {row.original.documents.activity && <a href={row.original.documents.activity} target="_blank" rel="noreferrer" title="Atividade"><FileText className="h-4 w-4 text-green-500 hover:text-green-700 cursor-pointer" /></a>}
+              {row.original.documents.selfie && <a href={row.original.documents.selfie} target="_blank" rel="noreferrer" title="Selfie"><User className="h-4 w-4 text-blue-500 hover:text-blue-700 cursor-pointer" /></a>}
+              {row.original.documents.cnhFull && <a href={row.original.documents.cnhFull} target="_blank" rel="noreferrer" title="CNH Completa"><ImageIcon className="h-4 w-4 text-blue-500 hover:text-blue-700 cursor-pointer" /></a>}
+              {row.original.documents.cnhFront && <a href={row.original.documents.cnhFront} target="_blank" rel="noreferrer" title="CNH Frente"><ImageIcon className="h-4 w-4 text-blue-500 hover:text-blue-700 cursor-pointer" /></a>}
+              {row.original.documents.cnhBack && <a href={row.original.documents.cnhBack} target="_blank" rel="noreferrer" title="CNH Verso"><ImageIcon className="h-4 w-4 text-blue-500 hover:text-blue-700 cursor-pointer" /></a>}
+              {row.original.documents.rgFront && <a href={row.original.documents.rgFront} target="_blank" rel="noreferrer" title="RG Frente"><ImageIcon className="h-4 w-4 text-blue-500 hover:text-blue-700 cursor-pointer" /></a>}
+              {row.original.documents.rgBack && <a href={row.original.documents.rgBack} target="_blank" rel="noreferrer" title="RG Verso"><ImageIcon className="h-4 w-4 text-blue-500 hover:text-blue-700 cursor-pointer" /></a>}
+            </>
+          ) : (
+            <span className="text-xs text-muted-foreground italic">Nenhum</span>
+          )}
+        </div>
+      ),
+    },
+    {
+      accessorKey: 'appFunnel',
+      header: ({ column }) => <SortableHeader column={column}>Funil</SortableHeader>,
+      cell: ({ row }) => (
+        <Badge
+          variant="outline"
+          className={row.original.appFunnel === 5 ? 'border-green-500 text-green-600' : ''}
+        >
+          {funnelLabel(row.original.appFunnel)}
+        </Badge>
+      ),
+    },
+    {
+      id: 'comercial',
+      accessorFn: (row) => row.user?.name || '',
+      header: ({ column }) => <SortableHeader column={column}>Comercial</SortableHeader>,
+      cell: ({ row }) => row.original.user ? (
+        <span className="text-sm font-medium">{row.original.user.name}</span>
+      ) : (
+        <span className="text-xs text-muted-foreground italic">Sem comercial</span>
+      ),
+    },
+    {
+      id: 'acoes',
+      header: () => <div className="text-right">Ações</div>,
+      enableSorting: false,
+      cell: ({ row }) => (
+        <div className="text-right">
+          <Button size="sm" variant="ghost" onClick={() => handleEdit(row.original)}>
+            <Pencil className="h-4 w-4 mr-1" />
+            Editar
+          </Button>
+        </div>
+      ),
+    },
+  ];
 
   if (loading && leads.length === 0) {
     return (
@@ -199,146 +285,12 @@ export default function AdminLeads() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {filteredLeads.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              {searchTerm
-                ? "Nenhum lead encontrado com esse filtro."
-                : "Nenhum lead cadastrado."}
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-[80px]">ID</TableHead>
-                    <TableHead>Cliente</TableHead>
-                    <TableHead>Documento</TableHead>
-                    <TableHead>Telefone</TableHead>
-                    <TableHead>Cidade/UF</TableHead>
-                    <TableHead>Documentos</TableHead>
-                    <TableHead>Funil</TableHead>
-                    <TableHead>Comercial</TableHead>
-                    <TableHead className="text-right">Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {paginatedLeads.map((lead) => (
-                    <TableRow key={lead.id}>
-                      <TableCell className="font-mono text-xs">
-                        {lead.leadCode || "-"}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex flex-col">
-                          <span className="font-medium text-sm">
-                            {lead.tradeName || lead.name}
-                          </span>
-                          {lead.tradeName && lead.name !== lead.tradeName && (
-                            <span className="text-xs text-muted-foreground">
-                              {lead.name}
-                            </span>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-xs">
-                        {lead.document || "-"}
-                      </TableCell>
-                      <TableCell className="text-sm">
-                        {lead.phone || "-"}
-                      </TableCell>
-                      <TableCell className="text-sm">
-                        {lead.city
-                          ? `${lead.city}/${lead.state || ""}`
-                          : "-"}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex gap-1 flex-wrap max-w-[120px]">
-                          {lead.documents ? (
-                            <>
-                              {lead.documents.cnpj && <a href={lead.documents.cnpj} target="_blank" rel="noreferrer" title="CNPJ/Contrato"><FileText className="h-4 w-4 text-green-500 hover:text-green-700 cursor-pointer" /></a>}
-                              {lead.documents.photo && <a href={lead.documents.photo} target="_blank" rel="noreferrer" title="Foto Antiga"><FileText className="h-4 w-4 text-green-500 hover:text-green-700 cursor-pointer" /></a>}
-                              {lead.documents.residence && <a href={lead.documents.residence} target="_blank" rel="noreferrer" title="Residência"><FileText className="h-4 w-4 text-green-500 hover:text-green-700 cursor-pointer" /></a>}
-                              {lead.documents.activity && <a href={lead.documents.activity} target="_blank" rel="noreferrer" title="Atividade"><FileText className="h-4 w-4 text-green-500 hover:text-green-700 cursor-pointer" /></a>}
-                              
-                              {lead.documents.selfie && <a href={lead.documents.selfie} target="_blank" rel="noreferrer" title="Selfie"><User className="h-4 w-4 text-blue-500 hover:text-blue-700 cursor-pointer" /></a>}
-                              {lead.documents.cnhFull && <a href={lead.documents.cnhFull} target="_blank" rel="noreferrer" title="CNH Completa"><ImageIcon className="h-4 w-4 text-blue-500 hover:text-blue-700 cursor-pointer" /></a>}
-                              {lead.documents.cnhFront && <a href={lead.documents.cnhFront} target="_blank" rel="noreferrer" title="CNH Frente"><ImageIcon className="h-4 w-4 text-blue-500 hover:text-blue-700 cursor-pointer" /></a>}
-                              {lead.documents.cnhBack && <a href={lead.documents.cnhBack} target="_blank" rel="noreferrer" title="CNH Verso"><ImageIcon className="h-4 w-4 text-blue-500 hover:text-blue-700 cursor-pointer" /></a>}
-                              {lead.documents.rgFront && <a href={lead.documents.rgFront} target="_blank" rel="noreferrer" title="RG Frente"><ImageIcon className="h-4 w-4 text-blue-500 hover:text-blue-700 cursor-pointer" /></a>}
-                              {lead.documents.rgBack && <a href={lead.documents.rgBack} target="_blank" rel="noreferrer" title="RG Verso"><ImageIcon className="h-4 w-4 text-blue-500 hover:text-blue-700 cursor-pointer" /></a>}
-                            </>
-                          ) : (
-                            <span className="text-xs text-muted-foreground italic">Nenhum</span>
-                          )}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge
-                          variant="outline"
-                          className={
-                            lead.appFunnel === 5
-                              ? "border-green-500 text-green-600"
-                              : ""
-                          }
-                        >
-                          {funnelLabel(lead.appFunnel)}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        {lead.user ? (
-                          <span className="text-sm font-medium">
-                            {lead.user.name}
-                          </span>
-                        ) : (
-                          <span className="text-xs text-muted-foreground italic">
-                            Sem comercial
-                          </span>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => handleEdit(lead)}
-                        >
-                          <Pencil className="h-4 w-4 mr-1" />
-                          Editar
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-          
-          {/* Pagination Controls */}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between mt-4 px-2">
-              <span className="text-sm text-muted-foreground">
-                Página {currentPage} de {totalPages} ({filteredLeads.length} leads)
-              </span>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                  disabled={currentPage === 1}
-                >
-                  <ChevronLeft className="h-4 w-4 mr-1" />
-                  Anterior
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                  disabled={currentPage === totalPages}
-                >
-                  Próxima
-                  <ChevronRight className="h-4 w-4 ml-1" />
-                </Button>
-              </div>
-            </div>
-          )}
+          <DataTable
+            columns={columns}
+            data={filteredLeads}
+            pageSize={30}
+            emptyMessage={searchTerm ? 'Nenhum lead encontrado com esse filtro.' : 'Nenhum lead cadastrado.'}
+          />
         </CardContent>
       </Card>
 

@@ -59,7 +59,7 @@ const statusConfig = {
     color: "bg-yellow-100 text-yellow-700",
   },
   confirmed: {
-    label: "Confirmada",
+    label: "Realizada",
     color: "bg-green-100 text-green-700",
   },
   cancelled: {
@@ -162,10 +162,11 @@ export function AgendaTab({
     return reminders.map((reminder) => {
       const visit = mapReminderToVisit(reminder);
 
-      if (visit.hasLead && visit.leadId) {
-        // Se tem lead, busca o endereço do lead
-        const lead = leads.find((l) => l.id === reminder.lead_id);
+      if (visit.leadId) {
+        // Se tem lead_id, busca os dados atualizados do lead independente de ter sido preenchido pelo backend
+        const lead = leads.find((l) => String(l.id) === String(reminder.lead_id));
         if (lead) {
+          visit.hasLead = true; // force hasLead to true based on local cache matching
           const addressParts = [
             lead.endereco_logradouro,
             lead.endereco_numero,
@@ -176,6 +177,9 @@ export function AgendaTab({
             : "Endereço não cadastrado";
           // Update funilApp from current lead data
           visit.funilApp = lead.funil_app;
+          // Update leadName from current lead data just in case
+          visit.leadName = lead.nome_fantasia || lead.razao_social || visit.leadName;
+          visit.leadCod = lead.cod_lead || visit.leadCod;
         }
       } else if (visit.estabelecimentoData?.endereco) {
         // Se não tem lead, usa o endereço do estabelecimento

@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Target, MapPin, TrendingUp, RefreshCw, Percent, Settings2 } from 'lucide-react';
+import { Target, MapPin, TrendingUp, RefreshCw, Percent, Settings2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { startOfMonth, endOfMonth, addMonths, subMonths, format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
 import { MonthlyHighlightCard } from '@/components/gestao/MonthlyHighlightCard';
 import { RadialProgressKpi } from '@/components/gestao/RadialProgressKpi';
@@ -20,11 +22,29 @@ export default function GestaoDashboard() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedUserId, setSelectedUserId] = useState<string | null>(searchParams.get('user'));
   const [period, setPeriod] = useState<Period>('month');
+  const [referenceDate, setReferenceDate] = useState(() => startOfMonth(new Date()));
   const [showCommissionSettings, setShowCommissionSettings] = useState(false);
   const { subordinates, isLoading: subsLoading } = useSubordinates();
-  const { consolidado, porUsuario, isLoading, refetch } = useGestaoStats(selectedUserId || undefined, period);
+
+  const isCurrentMonth =
+    referenceDate.getMonth() === new Date().getMonth() &&
+    referenceDate.getFullYear() === new Date().getFullYear();
+
+  const customRange = period === 'month'
+    ? { start: referenceDate, end: endOfMonth(referenceDate) }
+    : undefined;
+
+  const { consolidado, porUsuario, isLoading, refetch } = useGestaoStats(selectedUserId || undefined, period, customRange);
   const { role } = useUserRole();
   const canManageCommission = role === 'diretor' || role === 'admin';
+
+  const handlePrevMonth = () => setReferenceDate(prev => subMonths(prev, 1));
+  const handleNextMonth = () => setReferenceDate(prev => addMonths(prev, 1));
+
+  const handlePeriodChange = (p: Period) => {
+    setPeriod(p);
+    if (p === 'month') setReferenceDate(startOfMonth(new Date()));
+  };
 
   // Sync state with URL search params
   useEffect(() => {
@@ -87,7 +107,7 @@ export default function GestaoDashboard() {
         user={selectedUser}
         onBack={handleBack}
         period={period}
-        onPeriodChange={setPeriod}
+        onPeriodChange={handlePeriodChange}
       />
     );
   }
@@ -101,7 +121,26 @@ export default function GestaoDashboard() {
           <p className="text-muted-foreground">Visão consolidada da equipe</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          <PeriodFilter value={period} onChange={setPeriod} />
+          <PeriodFilter value={period} onChange={handlePeriodChange} />
+          {period === 'month' && (
+            <div className="flex items-center gap-1 bg-card border border-border rounded-xl px-2 py-1.5 shadow-sm">
+              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handlePrevMonth}>
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <span className="text-sm font-medium min-w-[120px] text-center capitalize">
+                {format(referenceDate, 'MMMM yyyy', { locale: ptBR })}
+              </span>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                onClick={handleNextMonth}
+                disabled={isCurrentMonth}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
           <ComercialSelector
             subordinates={subordinates}
             selectedId={selectedUserId}

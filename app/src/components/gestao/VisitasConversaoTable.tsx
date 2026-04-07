@@ -1,7 +1,9 @@
+import { ColumnDef } from '@tanstack/react-table';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { TableCell, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { DataTable, SortableHeader } from '@/components/ui/data-table';
 
 interface UserVisitas {
   userId: string;
@@ -56,6 +58,35 @@ export function VisitasConversaoTable({ data }: VisitasConversaoTableProps) {
     { metaNC: 0, realizadoNC: 0, visitas: 0 }
   );
 
+  const columns: ColumnDef<UserVisitas>[] = [
+    {
+      accessorKey: 'nome',
+      header: ({ column }) => <SortableHeader column={column} className="font-semibold">Comercial</SortableHeader>,
+      cell: ({ row }) => <span className="font-medium">{row.original.nome}</span>,
+    },
+    {
+      accessorKey: 'metaNC',
+      header: ({ column }) => <SortableHeader column={column} className="mx-auto font-semibold">Meta NC</SortableHeader>,
+      cell: ({ row }) => <div className="text-center">{row.original.metaNC}</div>,
+    },
+    {
+      accessorKey: 'realizadoNC',
+      header: ({ column }) => <SortableHeader column={column} className="mx-auto font-semibold">Realiz. NC</SortableHeader>,
+      cell: ({ row }) => <div className="text-center font-semibold">{row.original.realizadoNC}</div>,
+    },
+    {
+      accessorKey: 'visitas',
+      header: ({ column }) => <SortableHeader column={column} className="mx-auto font-semibold">Visitas</SortableHeader>,
+      cell: ({ row }) => <div className="text-center">{row.original.visitas}</div>,
+    },
+    {
+      id: 'conversao',
+      accessorFn: (row) => getConversao(row.realizadoNC, row.visitas),
+      header: ({ column }) => <SortableHeader column={column} className="mx-auto font-semibold">Conversão</SortableHeader>,
+      cell: ({ row }) => <div className="text-center">{getStatusBadge(getConversao(row.original.realizadoNC, row.original.visitas))}</div>,
+    },
+  ];
+
   return (
     <Card>
       <CardHeader className="pb-3">
@@ -65,51 +96,24 @@ export function VisitasConversaoTable({ data }: VisitasConversaoTableProps) {
       </CardHeader>
       <CardContent>
         <div className="rounded-md border overflow-hidden">
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-muted/50">
-                <TableHead className="font-semibold">Comercial</TableHead>
-                <TableHead className="text-center font-semibold">Meta NC</TableHead>
-                <TableHead className="text-center font-semibold">Realiz. NC</TableHead>
-                <TableHead className="text-center font-semibold">Visitas</TableHead>
-                <TableHead className="text-center font-semibold">Conversão</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {data.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
-                    Nenhum comercial encontrado
+          <DataTable
+            columns={columns}
+            data={data}
+            emptyMessage="Nenhum comercial encontrado"
+            renderAfterRows={() =>
+              data.length > 0 ? (
+                <TableRow className="bg-primary/5 font-bold border-t-2 border-primary/20">
+                  <TableCell className="font-bold text-primary">TOTAL</TableCell>
+                  <TableCell className="text-center">{totals.metaNC}</TableCell>
+                  <TableCell className="text-center">{totals.realizadoNC}</TableCell>
+                  <TableCell className="text-center">{totals.visitas}</TableCell>
+                  <TableCell className="text-center">
+                    {getStatusBadge(getConversao(totals.realizadoNC, totals.visitas))}
                   </TableCell>
                 </TableRow>
-              ) : (
-                <>
-                  {data.map((user) => {
-                    const conversao = getConversao(user.realizadoNC, user.visitas);
-                    return (
-                      <TableRow key={user.userId} className="hover:bg-muted/30">
-                        <TableCell className="font-medium">{user.nome}</TableCell>
-                        <TableCell className="text-center">{user.metaNC}</TableCell>
-                        <TableCell className="text-center font-semibold">{user.realizadoNC}</TableCell>
-                        <TableCell className="text-center">{user.visitas}</TableCell>
-                        <TableCell className="text-center">{getStatusBadge(conversao)}</TableCell>
-                      </TableRow>
-                    );
-                  })}
-                  {/* Linha de Total */}
-                  <TableRow className="bg-primary/5 font-bold border-t-2 border-primary/20">
-                    <TableCell className="font-bold text-primary">TOTAL</TableCell>
-                    <TableCell className="text-center">{totals.metaNC}</TableCell>
-                    <TableCell className="text-center">{totals.realizadoNC}</TableCell>
-                    <TableCell className="text-center">{totals.visitas}</TableCell>
-                    <TableCell className="text-center">
-                      {getStatusBadge(getConversao(totals.realizadoNC, totals.visitas))}
-                    </TableCell>
-                  </TableRow>
-                </>
-              )}
-            </TableBody>
-          </Table>
+              ) : null
+            }
+          />
         </div>
       </CardContent>
     </Card>

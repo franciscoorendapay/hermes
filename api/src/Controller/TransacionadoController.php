@@ -148,12 +148,34 @@ class TransacionadoController extends AbstractController
                 }
 
                 if ($leadId) {
+                    $totalT = (float)($empresa['total']['transacionado'] ?? 0);
+                    $pixT = (float)($empresa['pix']['transacionado'] ?? 0);
+                    $cartaoT = (float)($empresa['cartao']['transacionado'] ?? 0);
+                    $maquininhaT = (float)($empresa['maquininha']['transacionado'] ?? 0);
+                    $boletoT = (float)($empresa['boleto']['transacionado'] ?? 0);
+
+                    // Calculate dominant method
+                    $methods = [
+                        'PIX' => $pixT,
+                        'Cartão' => $cartaoT,
+                        'Maquininha' => $maquininhaT,
+                        'Boleto' => $boletoT
+                    ];
+                    arsort($methods);
+                    $dominant = array_key_first($methods);
+                    if ($methods[$dominant] == 0) $dominant = 'Nenhum';
+
                     $result[$leadId] = [
                         'token'          => $token,
-                        'transacionado'  => $empresa['total']['transacionado'] ?? 0,
-                        'receita_bruta'  => $empresa['total']['receita_bruta'] ?? 0,
-                        'custos'         => $empresa['total']['custo'] ?? 0,
-                        'receita_liquida'=> $empresa['total']['receita_liquida'] ?? 0,
+                        'transacionado'  => $totalT,
+                        'receita_bruta'  => (float)($empresa['total']['receita_bruta'] ?? 0),
+                        'custos'         => (float)($empresa['total']['custo'] ?? 0),
+                        'receita_liquida'=> (float)($empresa['total']['receita_liquida'] ?? 0),
+                        'pix'            => $pixT,
+                        'cartao'         => $cartaoT,
+                        'maquininha'     => $maquininhaT,
+                        'boleto'         => $boletoT,
+                        'dominant_method'=> $dominant
                     ];
                 }
             }
@@ -163,12 +185,34 @@ class TransacionadoController extends AbstractController
             foreach ($orendaData as $token => $dados) {
                 if (isset($tokenToLeadId[$token])) {
                     $leadId = $tokenToLeadId[$token];
+                    
+                    $totalT = (float)($dados['transacionado'] ?? $dados['total_transacionado'] ?? 0);
+                    $pixT = (float)($dados['pix'] ?? 0);
+                    $cartaoT = (float)($dados['cartao'] ?? 0);
+                    $maquininhaT = (float)($dados['maquininha'] ?? 0);
+                    $boletoT = (float)($dados['boleto'] ?? 0);
+
+                    $methods = [
+                        'PIX' => $pixT,
+                        'Cartão' => $cartaoT,
+                        'Maquininha' => $maquininhaT,
+                        'Boleto' => $boletoT
+                    ];
+                    arsort($methods);
+                    $dominant = array_key_first($methods);
+                    if ($methods[$dominant] == 0) $dominant = 'Nenhum';
+
                     $result[$leadId] = [
                         'token'          => $token,
-                        'transacionado'  => $dados['transacionado'] ?? $dados['total_transacionado'] ?? 0,
-                        'receita_bruta'  => $dados['receita_bruta'] ?? $dados['receitaBruta'] ?? 0,
-                        'custos'         => $dados['custos'] ?? 0,
-                        'receita_liquida'=> $dados['receita_liquida'] ?? $dados['receitaLiquida'] ?? 0,
+                        'transacionado'  => $totalT,
+                        'receita_bruta'  => (float)($dados['receita_bruta'] ?? $dados['receitaBruta'] ?? 0),
+                        'custos'         => (float)($dados['custos'] ?? 0),
+                        'receita_liquida'=> (float)($dados['receita_liquida'] ?? $dados['receitaLiquida'] ?? 0),
+                        'pix'            => $pixT,
+                        'cartao'         => $cartaoT,
+                        'maquininha'     => $maquininhaT,
+                        'boleto'         => $boletoT,
+                        'dominant_method'=> $dominant
                     ];
                 }
             }

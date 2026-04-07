@@ -25,11 +25,16 @@ export function RadialProgressKpi({
       <Card className="hover:shadow-md transition-shadow">
         <CardContent className="p-4">
           <div className="flex items-center gap-4">
-            <div className="relative w-24 h-24 flex-shrink-0 bg-muted/20 rounded-full animate-pulse" />
+            <div className="relative w-24 h-24 flex-shrink-0">
+              <div className="w-full h-full rounded-full animate-shimmer shimmer-gradient bg-muted/40" />
+            </div>
             <div className="flex-1 min-w-0 space-y-2">
-              <div className="h-4 w-24 bg-muted/20 rounded animate-pulse" />
-              <div className="h-8 w-16 bg-muted/20 rounded animate-pulse" />
-              <div className="h-3 w-20 bg-muted/20 rounded animate-pulse" />
+              <div className="flex items-center gap-2">
+                <div className="h-7 w-7 rounded-md animate-shimmer shimmer-gradient bg-muted/40" />
+                <div className="h-4 w-20 animate-shimmer shimmer-gradient bg-muted/40 rounded" />
+              </div>
+              <div className="h-8 w-24 animate-shimmer shimmer-gradient bg-muted/40 rounded" />
+              <div className="h-3 w-16 animate-shimmer shimmer-gradient bg-muted/40 rounded" />
             </div>
           </div>
         </CardContent>

@@ -22,6 +22,7 @@ import GestaoRelatorios from "./pages/gestao/GestaoRelatorios";
 import GestaoComissoes from "./pages/gestao/GestaoComissoes";
 import GestaoHierarquia from "./pages/gestao/GestaoHierarquia";
 import GestaoSLA from "./pages/gestao/GestaoSLA";
+import GestaoTransacionado from "./pages/gestao/GestaoTransacionado";
 // Logística
 import LogisticaLayout from "./components/logistica/LogisticaLayout";
 import LogisticaDashboard from "./pages/LogisticaDashboard";
@@ -83,6 +84,7 @@ const App = () => {
                 <Route path="comissoes" element={<GestaoComissoes />} />
                 <Route path="hierarquia" element={<GestaoHierarquia />} />
                 <Route path="sla" element={<GestaoSLA />} />
+                <Route path="transacionado" element={<GestaoTransacionado />} />
               </Route>
             </Route>
 

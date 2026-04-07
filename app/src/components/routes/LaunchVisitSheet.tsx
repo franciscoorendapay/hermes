@@ -367,7 +367,7 @@ export function LaunchVisitSheet({
 
       const loadDataAndSetStep = async () => {
         setLoading(true);
-        setVisitType("novo-cliente");
+        let targetType: VisitType = "novo-cliente";
 
         // Immediate step selection based on action
         switch (directAction) {
@@ -388,23 +388,37 @@ export function LaunchVisitSheet({
           case "finalizar_credenciamento":
             setStep("credenciamento");
             break;
-          case "prospeccao":
+          case "visita-cliente":
           case "retomar":
+            setStep("return-visit");
+            targetType = "retorno";
+            setLeadId(selectedLead.id);
+            setReturnSelectedLead(selectedLead);
+            break;
+          case "prospeccao":
             setStep("prospeccao");
             break;
           default:
             setStep("prospeccao");
         }
+        
+        setVisitType(targetType);
 
         try {
           // Fetch fresh details for the lead
           const apiLead = await leadsService.getById(selectedLead.id);
           const leadToUse = adaptLeadApiToApp(apiLead);
           preencherDadosDoLead(leadToUse);
+          if (targetType === "retorno") {
+            setObservacao("");
+          }
         } catch (error) {
           console.error("Failed to fetch fresh lead details:", error);
           // Fallback to cached lead data
           preencherDadosDoLead(selectedLead);
+          if (targetType === "retorno") {
+            setObservacao("");
+          }
         } finally {
           setLoading(false);
         }

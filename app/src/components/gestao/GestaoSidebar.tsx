@@ -13,7 +13,8 @@ import {
   UserPlus,
   FileBarChart,
   Coins,
-  Clock
+  Clock,
+  TrendingUp
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
@@ -26,6 +27,7 @@ const navItems = [
   { to: '/gestao/metas', icon: Target, label: 'Metas', roles: ['diretor', 'nacional', 'regional'] as const },
   { to: '/gestao/relatorios', icon: FileBarChart, label: 'Relatórios', roles: ['diretor', 'nacional', 'regional'] as const },
   { to: '/gestao/comissoes', icon: Coins, label: 'Comissões', roles: ['diretor', 'nacional', 'regional'] as const },
+  { to: '/gestao/transacionado', icon: TrendingUp, label: 'Transacionado', roles: ['diretor', 'nacional', 'regional'] as const },
   { to: '/gestao/hierarquia', icon: Network, label: 'Hierarquia', roles: ['diretor', 'nacional'] as const },
   { to: '/gestao/sla', icon: Clock, label: 'SLA Logística', roles: ['diretor', 'logistica'] as const },
 ];

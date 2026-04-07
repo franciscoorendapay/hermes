@@ -1,5 +1,7 @@
-import { useState, useEffect, useCallback } from "react";
+import { useCallback } from "react";
 import { api } from "@/shared/api/http";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@/hooks/useAuth";
 
 export interface Reminder {
   id: string | number; // Support both types if transitioning
@@ -43,111 +45,127 @@ export interface EstabelecimentoData {
   estado?: string;
 }
 
-import { useAuth } from "@/hooks/useAuth";
-
 export function useReminders(isAuthenticated: boolean) {
   const { effectiveUser } = useAuth();
-  const [reminders, setReminders] = useState<Reminder[]>([]);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
 
-  const fetchReminders = useCallback(async () => {
-    if (!isAuthenticated) {
-      setReminders([]);
-      setLoading(false);
-      return;
-    }
-
-    try {
-      setLoading(true);
+  const { data: reminders = [], isLoading: loading, refetch: fetchReminders } = useQuery({
+    queryKey: ['reminders', effectiveUser?.id],
+    queryFn: async () => {
       const url = effectiveUser?.id
         ? `/reminders?user_ids=${effectiveUser.id}`
         : '/reminders';
       const response = await api.get(url);
-      setReminders(response.data);
-    } catch (error) {
-      console.error("Error fetching reminders:", error);
-    } finally {
-      setLoading(false);
-    }
-  }, [isAuthenticated]);
+      return response.data as Reminder[];
+    },
+    enabled: isAuthenticated,
+  });
 
-  useEffect(() => {
-    fetchReminders();
-  }, [fetchReminders]);
-
-  const createReminder = async (
-    leadId: string | number,
-    dataLembrete: string,
-    horaLembrete: string,
-    descricao?: string
-  ) => {
-    try {
+  const createReminderMutation = useMutation({
+    mutationFn: async (vars: { leadId: string | number, dataLembrete: string, horaLembrete: string, descricao?: string }) => {
       const response = await api.post('/reminders', {
-        lead_id: leadId,
-        data_lembrete: dataLembrete,
-        hora_lembrete: horaLembrete,
-        descricao,
+        lead_id: vars.leadId,
+        data_lembrete: vars.dataLembrete,
+        hora_lembrete: vars.horaLembrete,
+        descricao: vars.descricao,
         status: "pendente",
         tipo: "lembrete",
       });
-      await fetchReminders();
-      return { success: true, data: response.data };
+      return response.data;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['reminders'] }),
+  });
+
+  const createReminderForLeadMutation = useMutation({
+    mutationFn: async (vars: { leadId: string | number, dataLembrete: string, horaLembrete: string, descricao?: string }) => {
+      const response = await api.post('/reminders', {
+        lead_id: vars.leadId,
+        data_lembrete: vars.dataLembrete,
+        hora_lembrete: vars.horaLembrete,
+        descricao: vars.descricao,
+        status: "pendente",
+        tipo: "agendamento",
+      });
+      return response.data;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['reminders'] }),
+  });
+
+  const createReminderWithoutLeadMutation = useMutation({
+    mutationFn: async (vars: { dataLembrete: string, horaLembrete: string, estabelecimentoData: EstabelecimentoData, descricao?: string }) => {
+      const response = await api.post('/reminders', {
+        data_lembrete: vars.dataLembrete,
+        hora_lembrete: vars.horaLembrete,
+        descricao: vars.descricao,
+        status: "pendente",
+        tipo: "agendamento",
+        estabelecimento_nome: vars.estabelecimentoData.nome,
+        estabelecimento_endereco: vars.estabelecimentoData.endereco,
+        estabelecimento_lat: vars.estabelecimentoData.lat,
+        estabelecimento_lng: vars.estabelecimentoData.lng,
+        estabelecimento_cep: vars.estabelecimentoData.cep,
+        estabelecimento_numero: vars.estabelecimentoData.numero,
+        estabelecimento_bairro: vars.estabelecimentoData.bairro,
+        estabelecimento_cidade: vars.estabelecimentoData.cidade,
+        estabelecimento_estado: vars.estabelecimentoData.estado,
+      });
+      return response.data;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['reminders'] }),
+  });
+
+  const updateReminderWithLeadMutation = useMutation({
+    mutationFn: async (vars: { reminderId: string | number, leadId: string | number }) => {
+      const response = await api.patch(`/reminders/${vars.reminderId}`, {
+        lead_id: vars.leadId,
+        status: "concluido"
+      });
+      return response.data;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['reminders'] }),
+  });
+
+  const updateReminderStatusMutation = useMutation({
+    mutationFn: async (vars: { reminderId: string | number, status: "pendente" | "concluido" | "cancelado" }) => {
+      const response = await api.patch(`/reminders/${vars.reminderId}`, { status: vars.status });
+      return response.data;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['reminders'] }),
+  });
+
+  const markReminderAddedToRouteMutation = useMutation({
+    mutationFn: async (reminderId: string | number) => {
+      const response = await api.patch(`/reminders/${reminderId}`, { adicionado_rota: true });
+      return response.data;
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['reminders'] }),
+  });
+
+  // Wrappers for compatibility with existing code
+  const createReminder = async (leadId: string | number, dataLembrete: string, horaLembrete: string, descricao?: string) => {
+    try {
+      const data = await createReminderMutation.mutateAsync({ leadId, dataLembrete, horaLembrete, descricao });
+      return { success: true, data };
     } catch (error) {
       console.error("Error creating reminder:", error);
       return { success: false, error };
     }
   };
 
-  const createReminderForLead = async (
-    leadId: string | number,
-    dataLembrete: string,
-    horaLembrete: string,
-    descricao?: string
-  ) => {
+  const createReminderForLead = async (leadId: string | number, dataLembrete: string, horaLembrete: string, descricao?: string) => {
     try {
-      // Check local duplicate or rely on backend return?
-      // Let's rely on backend or just send it.
-      const response = await api.post('/reminders', {
-        lead_id: leadId,
-        data_lembrete: dataLembrete,
-        hora_lembrete: horaLembrete,
-        descricao,
-        status: "pendente",
-        tipo: "agendamento",
-      });
-      await fetchReminders();
-      return { success: true, data: response.data };
+      const data = await createReminderForLeadMutation.mutateAsync({ leadId, dataLembrete, horaLembrete, descricao });
+      return { success: true, data };
     } catch (error) {
       console.error("Error creating reminder for lead:", error);
       return { success: false, error };
     }
   };
 
-  const createReminderWithoutLead = async (
-    dataLembrete: string,
-    horaLembrete: string,
-    estabelecimentoData: EstabelecimentoData,
-    descricao?: string
-  ) => {
+  const createReminderWithoutLead = async (dataLembrete: string, horaLembrete: string, estabelecimentoData: EstabelecimentoData, descricao?: string) => {
     try {
-      const response = await api.post('/reminders', {
-        data_lembrete: dataLembrete,
-        hora_lembrete: horaLembrete,
-        descricao,
-        status: "pendente",
-        tipo: "agendamento",
-        estabelecimento_nome: estabelecimentoData.nome,
-        estabelecimento_endereco: estabelecimentoData.endereco,
-        estabelecimento_lat: estabelecimentoData.lat,
-        estabelecimento_lng: estabelecimentoData.lng,
-        estabelecimento_cep: estabelecimentoData.cep,
-        estabelecimento_numero: estabelecimentoData.numero,
-        estabelecimento_bairro: estabelecimentoData.bairro,
-        estabelecimento_cidade: estabelecimentoData.cidade,
-        estabelecimento_estado: estabelecimentoData.estado,
-      });
-      await fetchReminders();
-      return { success: true, data: response.data };
+      const data = await createReminderWithoutLeadMutation.mutateAsync({ dataLembrete, horaLembrete, estabelecimentoData, descricao });
+      return { success: true, data };
     } catch (error) {
       console.error("Error creating reminder without lead:", error);
       return { success: false, error };
@@ -156,11 +174,7 @@ export function useReminders(isAuthenticated: boolean) {
 
   const updateReminderWithLead = async (reminderId: string | number, leadId: string | number) => {
     try {
-      await api.patch(`/reminders/${reminderId}`, {
-        lead_id: leadId,
-        status: "concluido"
-      });
-      await fetchReminders();
+      await updateReminderWithLeadMutation.mutateAsync({ reminderId, leadId });
       return { success: true };
     } catch (error) {
       console.error("Error updating reminder with lead:", error);
@@ -168,13 +182,9 @@ export function useReminders(isAuthenticated: boolean) {
     }
   };
 
-  const updateReminderStatus = async (
-    reminderId: string | number,
-    status: "pendente" | "concluido" | "cancelado"
-  ) => {
+  const updateReminderStatus = async (reminderId: string | number, status: "pendente" | "concluido" | "cancelado") => {
     try {
-      await api.patch(`/reminders/${reminderId}`, { status });
-      await fetchReminders();
+      await updateReminderStatusMutation.mutateAsync({ reminderId, status });
       return { success: true };
     } catch (error) {
       console.error("Error updating reminder status:", error);
@@ -184,8 +194,7 @@ export function useReminders(isAuthenticated: boolean) {
 
   const markReminderAddedToRoute = async (reminderId: string | number) => {
     try {
-      await api.patch(`/reminders/${reminderId}`, { adicionado_rota: true });
-      await fetchReminders();
+      await markReminderAddedToRouteMutation.mutateAsync(reminderId);
       return { success: true };
     } catch (error) {
       console.error("Error marking reminder as added to route:", error);

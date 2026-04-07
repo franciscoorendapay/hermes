@@ -114,7 +114,9 @@ export function AddVisitDialog({
       .replace(/[\u0300-\u036f]/g, "");
       
     return leads.find((lead) => {
-      const normalizedLeadName = lead.nome_fantasia.toLowerCase()
+      const nomeF = lead.nome_fantasia || lead.razao_social || "";
+      if (!nomeF) return false;
+      const normalizedLeadName = nomeF.toLowerCase()
         .normalize("NFD")
         .replace(/[\u0300-\u036f]/g, "");
       return normalizedLeadName === normalizedPlaceName;

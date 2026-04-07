@@ -26,7 +26,10 @@ export const SimulatedPlacesSearch = forwardRef<HTMLDivElement, SimulatedPlacesS
           .replace(/[\u0300-\u036f]/g, "");
         
         const found = leads.filter((lead) => {
-          const normalizedName = lead.nome_fantasia.toLowerCase()
+          const nomeF = lead.nome_fantasia || lead.razao_social || "";
+          if (!nomeF) return false;
+          
+          const normalizedName = nomeF.toLowerCase()
             .normalize("NFD")
             .replace(/[\u0300-\u036f]/g, "");
           
@@ -54,8 +57,8 @@ export const SimulatedPlacesSearch = forwardRef<HTMLDivElement, SimulatedPlacesS
         const placeResult: PlaceResult = {
           name: lead.nome_fantasia,
           address: address || "Endereço não informado",
-          lat: lead.lat || 0,
-          lng: lead.lng || 0,
+          lat: lead.lat ? parseFloat(lead.lat) : 0,
+          lng: lead.lng ? parseFloat(lead.lng) : 0,
           placeId: lead.id,
           phone: lead.telefone || undefined,
           types: [lead.segmento || "business"],

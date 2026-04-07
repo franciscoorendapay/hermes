@@ -81,7 +81,11 @@ function getDateRange(period: Period): { start: Date; end: Date } {
   }
 }
 
-export function useGestaoStats(selectedUserId?: string, period: Period = 'month'): GestaoStats & { refetch: () => void } {
+export function useGestaoStats(
+  selectedUserId?: string,
+  period: Period = 'month',
+  customRange?: { start: Date; end: Date }
+): GestaoStats & { refetch: () => void } {
   const { effectiveUser } = useAuth();
   const { role, isManager, isAdmin } = useUserRole();
 
@@ -99,13 +103,13 @@ export function useGestaoStats(selectedUserId?: string, period: Period = 'month'
   };
 
   const { data, isLoading, refetch } = useQuery({
-    queryKey: ['gestaoStats', period, selectedUserId, effectiveUser?.id, role],
+    queryKey: ['gestaoStats', period, selectedUserId, effectiveUser?.id, role, customRange?.start?.toISOString(), customRange?.end?.toISOString()],
     queryFn: async () => {
       if (!effectiveUser || (!isManager && !isAdmin)) {
         return initialStats;
       }
 
-      const { start: periodStart, end: periodEnd } = getDateRange(period);
+      const { start: periodStart, end: periodEnd } = customRange ?? getDateRange(period);
       const currentMonth = periodStart.getMonth() + 1;
       const currentYear = periodStart.getFullYear();
 
@@ -127,6 +131,9 @@ export function useGestaoStats(selectedUserId?: string, period: Period = 'month'
       } else {
         targetUsers = [];
       }
+
+      // Exclude test/inactive users from stats calculations
+      targetUsers = targetUsers.filter(u => u.includeInStats !== false);
 
       let userIds = targetUsers.map(u => u.id);
 
@@ -155,12 +162,13 @@ export function useGestaoStats(selectedUserId?: string, period: Period = 'month'
       const lembretes = remindersRes.data || [];
 
       // Filter leads credenciados by date
+      // Priority: data_credenciamento (accreditation date) → data_registro (creation date)
       const leadsCredenciadosPeriodo = allLeads?.filter((l: any) => {
         if (l.credenciado !== 1) return false;
-        const dateStr = l.updated_at || l.data_registro;
+        const dateStr = l.data_credenciamento || l.data_registro;
         if (!dateStr) return false;
-        const updatedAt = new Date(dateStr);
-        return updatedAt >= periodStart && updatedAt <= periodEnd;
+        const d = new Date(dateStr);
+        return d >= periodStart && d <= periodEnd;
       }) || [];
 
       // Filter visits by date
@@ -197,7 +205,9 @@ export function useGestaoStats(selectedUserId?: string, period: Period = 'month'
       };
 
       const leadsAccreditedTotal = allLeads.filter((l: any) => l.credenciado === 1);
-      const leadsAccreditedPeriod = leadsAccreditedTotal.filter((l: any) => filterByDate(l.updated_at || l.data_registro));
+      const leadsAccreditedPeriod = leadsAccreditedTotal.filter((l: any) =>
+        filterByDate(l.data_credenciamento || l.data_registro)
+      );
 
       const consolidadoLeads: LeadStats = {
         total: allLeads.length,
@@ -210,7 +220,7 @@ export function useGestaoStats(selectedUserId?: string, period: Period = 'month'
 
       allLeads.forEach((l: any) => {
         const funil = l.funil_app || 1;
-        const dateStr = funil === 5 ? (l.data_credenciamento || l.updated_at || l.data_registro) : (l.updated_at || l.data_registro);
+        const dateStr = funil === 5 ? (l.data_credenciamento || l.data_registro) : l.data_registro;
         if (filterByDate(dateStr)) {
           consolidadoLeads.byFunil[funil] = (consolidadoLeads.byFunil[funil] || 0) + 1;
         }
@@ -219,7 +229,7 @@ export function useGestaoStats(selectedUserId?: string, period: Period = 'month'
       // Daily Credenciamentos Chart Data
       const dailyMap = new Map<string, { quantidade: number, tpv: number }>();
       leadsAccreditedPeriod.forEach((l: any) => {
-        const dateStr = l.updated_at || l.data_registro;
+        const dateStr = l.data_credenciamento || l.data_registro;
         if (!dateStr) return;
         const day = new Date(dateStr).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
         const current = dailyMap.get(day) || { quantidade: 0, tpv: 0 };
@@ -284,7 +294,9 @@ export function useGestaoStats(selectedUserId?: string, period: Period = 'month'
       for (const uid of userIds) {
         const userLeads = allLeads.filter((l: any) => l.user_id === uid);
         const userLeadsAccreditedTotal = userLeads.filter((l: any) => l.credenciado === 1);
-        const userLeadsAccreditedPeriod = userLeadsAccreditedTotal.filter((l: any) => filterByDate(l.updated_at || l.data_registro));
+        const userLeadsAccreditedPeriod = userLeadsAccreditedTotal.filter((l: any) =>
+          filterByDate(l.data_credenciamento || l.data_registro)
+        );
 
         const userVisitas = visitasPeriodo?.filter((v: any) => (v.user?.id || v.user_id) === uid) || [];
         const userMeta = metas?.find((m: any) => (m.user?.id || m.user_id) === uid);
@@ -300,7 +312,7 @@ export function useGestaoStats(selectedUserId?: string, period: Period = 'month'
 
         userLeads.forEach((l: any) => {
           const funil = l.funil_app || 1;
-          const dateStr = funil === 5 ? (l.data_credenciamento || l.updated_at || l.data_registro) : (l.updated_at || l.data_registro);
+          const dateStr = funil === 5 ? (l.data_credenciamento || l.data_registro) : l.data_registro;
           if (filterByDate(dateStr)) {
             userLeadStats.byFunil[funil] = (userLeadStats.byFunil[funil] || 0) + 1;
           }

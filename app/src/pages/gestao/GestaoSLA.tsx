@@ -84,21 +84,8 @@ export default function GestaoSLA() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="space-y-4">
-        <Skeleton className="h-8 w-64" />
-        <div className="grid gap-4">
-          {[1, 2, 3, 4].map((i) => (
-            <Skeleton key={i} className="h-24" />
-          ))}
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-in fade-in duration-500">
       <div>
         <h1 className="text-2xl font-bold text-foreground">Configuração de SLA</h1>
         <p className="text-muted-foreground mt-1">
@@ -120,7 +107,24 @@ export default function GestaoSLA() {
       </Card>
 
       <div className="grid gap-4">
-        {configs.map((config) => {
+        {loading ? (
+          Array.from({ length: 4 }).map((i) => (
+            <Card key={i}>
+              <CardHeader className="pb-3">
+                <Skeleton className="h-6 w-48" />
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-end gap-4">
+                  <div className="flex-1 space-y-2">
+                    <Skeleton className="h-4 w-32" />
+                    <Skeleton className="h-10 w-24" />
+                  </div>
+                  <Skeleton className="h-9 w-24" />
+                </div>
+              </CardContent>
+            </Card>
+          ))
+        ) : configs.map((config) => {
           const hasChanges = editedValues[config.id] !== config.prazo_dias;
           const isSaving = saving[config.id];
 

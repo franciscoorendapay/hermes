@@ -151,82 +151,29 @@ export default function AdminLogs() {
         </Button>
       </PageHeader>
 
-      {/* Statistics Cards */}
-      {isLoading ? (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          {[1, 2, 3, 4].map((i) => (
-            <Card key={i} className="glass">
-              <CardHeader className="pb-2">
-                <Skeleton className="h-4 w-24" />
-              </CardHeader>
-              <CardContent>
-                <Skeleton className="h-8 w-16 mb-2" />
-                <Skeleton className="h-3 w-32" />
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      ) : stats ? (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <Card className="glass">
+      {/* Statistics Cards — labels always visible, values skeleton when loading */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        {[
+          { title: 'Total de Logs', icon: <Activity className="h-4 w-4 text-muted-foreground" />, value: stats?.total_logs, color: '', sub: `Últimos ${dateFrom && dateTo ? 'filtrados' : '30 dias'}` },
+          { title: 'Erros', icon: <AlertCircle className="h-4 w-4 text-red-500" />, value: stats ? (stats.by_level.ERROR || 0) + (stats.by_level.CRITICAL || 0) : undefined, color: 'text-red-500', sub: stats ? `${stats.by_level.ERROR || 0} erros, ${stats.by_level.CRITICAL || 0} críticos` : '' },
+          { title: 'Avisos', icon: <AlertTriangle className="h-4 w-4 text-yellow-500" />, value: stats?.by_level.WARNING, color: 'text-yellow-500', sub: 'Requer atenção' },
+          { title: 'Info', icon: <Info className="h-4 w-4 text-blue-500" />, value: stats?.by_level.INFO, color: 'text-blue-500', sub: 'Logs informativos' },
+        ].map(({ title, icon, value, color, sub }) => (
+          <Card key={title} className="glass">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Total de Logs</CardTitle>
-              <Activity className="h-4 w-4 text-muted-foreground" />
+              <CardTitle className="text-sm font-medium">{title}</CardTitle>
+              {icon}
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">{stats.total_logs.toLocaleString()}</div>
-              <p className="text-xs text-muted-foreground mt-1">
-                Últimos {dateFrom && dateTo ? 'filtrados' : '30 dias'}
-              </p>
+              {isLoading
+                ? <Skeleton className="h-8 w-16 mb-2" />
+                : <div className={`text-2xl font-bold ${color}`}>{(value ?? 0).toLocaleString()}</div>
+              }
+              <p className="text-xs text-muted-foreground mt-1">{sub}</p>
             </CardContent>
           </Card>
-
-          <Card className="glass">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Erros</CardTitle>
-              <AlertCircle className="h-4 w-4 text-red-500" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-red-500">
-                {((stats.by_level.ERROR || 0) + (stats.by_level.CRITICAL || 0)).toLocaleString()}
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                {stats.by_level.ERROR || 0} erros, {stats.by_level.CRITICAL || 0} críticos
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="glass">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Avisos</CardTitle>
-              <AlertTriangle className="h-4 w-4 text-yellow-500" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-yellow-500">
-                {(stats.by_level.WARNING || 0).toLocaleString()}
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                Requer atenção
-              </p>
-            </CardContent>
-          </Card>
-
-          <Card className="glass">
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium">Info</CardTitle>
-              <Info className="h-4 w-4 text-blue-500" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-blue-500">
-                {(stats.by_level.INFO || 0).toLocaleString()}
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                Logs informativos
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-      ) : null}
+        ))}
+      </div>
 
       {/* Top Errors */}
       {!isLoading && stats && stats.top_errors.length > 0 && (

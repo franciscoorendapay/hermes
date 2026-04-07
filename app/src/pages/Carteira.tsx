@@ -152,86 +152,7 @@ export default function Carteira() {
     setShowVisitSheet(true);
   };
 
-  if (isLoading || isLoadingTransacionado || isLoadingCommission) {
-    return (
-      <div className="space-y-4 pb-6">
-        {/* Header Skeleton */}
-        <div className="flex items-center gap-3 mb-4">
-          <Skeleton className="h-8 w-8 rounded-lg" />
-          <div className="space-y-1">
-            <Skeleton className="h-4 w-32" />
-            <Skeleton className="h-3 w-48" />
-          </div>
-        </div>
-
-        {/* KPIs Grid Skeleton */}
-        <div className="grid grid-cols-2 gap-3">
-          {[1, 2, 3, 4].map((i) => (
-            <Card key={i} className="bg-white border border-border rounded-xl shadow-none">
-              <CardContent className="p-3 space-y-2">
-                <div className="flex items-center gap-2">
-                  <Skeleton className="h-4 w-4" />
-                  <Skeleton className="h-3 w-20" />
-                </div>
-                <Skeleton className="h-6 w-24" />
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-
-        {/* Top Clients Skeleton */}
-        <Card className="bg-white border border-border rounded-xl shadow-none">
-          <CardHeader className="pb-2 pt-3 px-3">
-            <Skeleton className="h-4 w-32" />
-          </CardHeader>
-          <CardContent className="space-y-2 px-3 pb-3">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="flex justify-between items-center p-2.5">
-                <div className="flex gap-2.5 items-center">
-                  <Skeleton className="h-7 w-7 rounded-full" />
-                  <div className="space-y-1">
-                    <Skeleton className="h-3 w-32" />
-                    <Skeleton className="h-2 w-20" />
-                  </div>
-                </div>
-                <div className="space-y-1">
-                  <Skeleton className="h-3 w-16" />
-                  <Skeleton className="h-2 w-12" />
-                </div>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-
-        {/* List Skeleton */}
-        <Card className="bg-white border border-border rounded-xl shadow-none">
-          <CardHeader className="pb-2 pt-3 px-3">
-            <Skeleton className="h-4 w-40" />
-          </CardHeader>
-          <CardContent className="space-y-3 px-3 pb-3">
-            <Skeleton className="h-9 w-full" />
-            <div className="space-y-2">
-              {[1, 2, 3, 4, 5].map((i) => (
-                <div key={i} className="flex justify-between items-center p-2.5">
-                  <div className="flex gap-2.5 items-center">
-                    <Skeleton className="h-9 w-9 rounded-full" />
-                    <div className="space-y-1">
-                      <Skeleton className="h-3 w-40" />
-                      <Skeleton className="h-2 w-24" />
-                    </div>
-                  </div>
-                  <div className="space-y-1">
-                    <Skeleton className="h-3 w-20" />
-                    <Skeleton className="h-2 w-16" />
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
+  const dataLoading = isLoading || isLoadingTransacionado || isLoadingCommission;
 
   return (
     <div className="space-y-4 pb-6">
@@ -289,7 +210,7 @@ export default function Carteira() {
               <Users className="h-4 w-4" />
               <span className="font-semibold text-[#454545] text-xs">Total Clientes</span>
             </div>
-            <p className="font-semibold text-primary text-base">{kpis.totalClientes}</p>
+            {dataLoading ? <Skeleton className="h-5 w-16 mt-1" /> : <p className="font-semibold text-primary text-base">{kpis.totalClientes}</p>}
           </CardContent>
         </Card>
 
@@ -299,7 +220,7 @@ export default function Carteira() {
               <TrendingUp className="h-4 w-4" />
               <span className="font-semibold text-[#454545] text-xs">TPV Prometido</span>
             </div>
-            <p className="font-semibold text-primary text-base">{formatMoney(kpis.tpvTotal)}</p>
+            {dataLoading ? <Skeleton className="h-5 w-24 mt-1" /> : <p className="font-semibold text-primary text-base">{formatMoney(kpis.tpvTotal)}</p>}
           </CardContent>
         </Card>
 
@@ -311,15 +232,12 @@ export default function Carteira() {
                   <BarChart2 className="h-4 w-4" />
                   <span className="font-semibold text-xs">Transacionado Real (mês)</span>
                 </div>
-                {isLoadingTransacionado ? (
-                  <div className="flex items-center gap-2">
-                    <Skeleton className="h-5 w-24" />
-                    <span className="text-[10px] text-blue-500">carregando...</span>
-                  </div>
+                {dataLoading ? (
+                  <Skeleton className="h-5 w-24 mt-1" />
                 ) : (
                   <p className="font-bold text-blue-700 text-lg">{formatMoney(kpis.transacionadoTotal)}</p>
                 )}
-                {!isLoadingTransacionado && kpis.transacionadoTotal === 0 && Object.keys(transacionadoMap).length === 0 && (
+                {!dataLoading && kpis.transacionadoTotal === 0 && Object.keys(transacionadoMap).length === 0 && (
                   <p className="text-[10px] text-blue-400 mt-0.5">Nenhum cliente com token cadastrado</p>
                 )}
               </div>
@@ -340,7 +258,7 @@ export default function Carteira() {
               <Coins className="h-4 w-4" />
               <span className="font-semibold text-[#454545] text-xs">Comissão Prevista</span>
             </div>
-            <p className="font-semibold text-green-600 text-base">{formatMoney(kpis.comissaoTotal)}</p>
+            {dataLoading ? <Skeleton className="h-5 w-24 mt-1" /> : <p className="font-semibold text-green-600 text-base">{formatMoney(kpis.comissaoTotal)}</p>}
           </CardContent>
         </Card>
 
@@ -351,7 +269,7 @@ export default function Carteira() {
                 <BarChart2 className="h-4 w-4" />
                 <span className="font-semibold text-[#454545] text-xs">Receita Líquida</span>
               </div>
-              <p className="font-semibold text-primary text-base">{formatMoney(kpis.receitaLiquidaTotal)}</p>
+              {dataLoading ? <Skeleton className="h-5 w-24 mt-1" /> : <p className="font-semibold text-primary text-base">{formatMoney(kpis.receitaLiquidaTotal)}</p>}
             </CardContent>
           </Card>
         )}
@@ -362,13 +280,13 @@ export default function Carteira() {
               <Calculator className="h-4 w-4" />
               <span className="font-semibold text-[#454545] text-xs">Ticket Médio</span>
             </div>
-            <p className="font-semibold text-primary text-base">{formatMoney(kpis.ticketMedio)}</p>
+            {dataLoading ? <Skeleton className="h-5 w-24 mt-1" /> : <p className="font-semibold text-primary text-base">{formatMoney(kpis.ticketMedio)}</p>}
           </CardContent>
         </Card>
       </div>
 
       {/* TOP Clientes */}
-      {topClientes.length > 0 && (
+      {(dataLoading || topClientes.length > 0) && (
         <Card className="bg-white border border-border rounded-xl shadow-none">
           <CardHeader className="pb-2 pt-3 px-3">
             <CardTitle className="text-sm flex items-center gap-2">
@@ -377,7 +295,23 @@ export default function Carteira() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 px-3 pb-3">
-            {topClientes.map((cliente, index) => {
+            {dataLoading ? (
+              [1, 2, 3].map((i) => (
+                <div key={i} className="flex justify-between items-center p-2.5">
+                  <div className="flex gap-2.5 items-center">
+                    <Skeleton className="h-7 w-7 rounded-full" />
+                    <div className="space-y-1">
+                      <Skeleton className="h-3 w-32" />
+                      <Skeleton className="h-2 w-20" />
+                    </div>
+                  </div>
+                  <div className="space-y-1 text-right">
+                    <Skeleton className="h-3 w-16 ml-auto" />
+                    <Skeleton className="h-2 w-12 ml-auto" />
+                  </div>
+                </div>
+              ))
+            ) : topClientes.map((cliente, index) => {
               const trans = transacionadoMap[cliente.id];
               const safeDiff = getSafraDiff(cliente);
               const isNovo = safeDiff <= 2;
@@ -513,11 +447,30 @@ export default function Carteira() {
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-9 h-9 text-sm"
+              disabled={dataLoading}
             />
           </div>
 
           {/* Lista */}
-          {clientesFiltrados.length === 0 ? (
+          {dataLoading ? (
+            <div className="space-y-2">
+              {[1, 2, 3, 4, 5].map((i) => (
+                <div key={i} className="flex justify-between items-center p-2.5">
+                  <div className="flex gap-2.5 items-center">
+                    <Skeleton className="h-9 w-9 rounded-full" />
+                    <div className="space-y-1">
+                      <Skeleton className="h-3 w-40" />
+                      <Skeleton className="h-2 w-24" />
+                    </div>
+                  </div>
+                  <div className="space-y-1 text-right">
+                    <Skeleton className="h-3 w-20 ml-auto" />
+                    <Skeleton className="h-2 w-16 ml-auto" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : clientesFiltrados.length === 0 ? (
             <p className="text-center text-xs text-muted-foreground py-8">
               {searchTerm ? 'Nenhum cliente encontrado' : 'Nenhum cliente na carteira'}
             </p>

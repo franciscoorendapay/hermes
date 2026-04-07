@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Download, Coins, ArrowLeft, FileSpreadsheet } from 'lucide-react';
+import { Download, Coins, ArrowLeft, FileSpreadsheet, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { TableCell, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useSubordinates } from '@/hooks/useSubordinates';
 import { useAuth } from '@/hooks/useAuth';
@@ -11,10 +11,10 @@ import { useCommissionSettings } from '@/hooks/useCommissionSettings';
 import { formatMoney } from '@/lib/formatters';
 import { startOfMonth, endOfMonth, format } from 'date-fns';
 import { Input } from '@/components/ui/input';
-import { Search } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useNavigate } from 'react-router-dom';
-import * as XLSX from 'xlsx';
+import { ColumnDef } from '@tanstack/react-table';
+import { DataTable, SortableHeader } from '@/components/ui/data-table';
 
 interface ComissaoByUser {
   userId: string;
@@ -79,11 +79,9 @@ export default function GestaoComissoes() {
         const userIds = allUsers.map(s => s.id);
         const idsParam = userIds.join(',');
 
-        // 1. Fetch leads to get IDs and Safra
         const leadsRes = await http.get('/leads', { params: { user_ids: idsParam } });
         const leads = (Array.isArray(leadsRes.data) ? leadsRes.data : leadsRes.data?.leads) || [];
 
-        // 2. Fetch real transacted data for these users/period
         const params: any = { user_ids: idsParam };
         if (reportMode === 'month') {
           params.month = `${ano}-${String(mes).padStart(2, '0')}`;
@@ -95,7 +93,6 @@ export default function GestaoComissoes() {
         const transRes = await http.get('/leads/transacionado', { params });
         const transMap: Record<string, any> = transRes.data || {};
 
-        // 3. Process and calculate
         const commissionsMap: Record<string, ComissaoByUser> = {};
         allUsers.forEach(sub => {
           commissionsMap[sub.id] = {
@@ -171,55 +168,29 @@ export default function GestaoComissoes() {
     ? `${String(mes).padStart(2, '0')}-${ano}`
     : `${startDate}_${endDate}`;
 
-  const exportDetailedExcel = () => {
+  const exportDetailedExcel = async () => {
     if (clienteRows.length === 0) return;
-
-    // Format currency columns for display
-    const formatted = clienteRows.map(r => ({
-      'Nome do Cliente': r['Nome do Cliente'],
-      'Email': r['Email'],
-      'CNPJ': r['CNPJ'],
-      'Comercial': r['Comercial'],
-      'Valor Transacionado': r['Valor Transacionado'],
-      'Receita Bruta': r['Receita Bruta'],
-      'Receita Líquida': r['Receita Líquida'],
-      'Comissão': r['Comissão'],
-    }));
-
-    const ws = XLSX.utils.json_to_sheet(formatted);
-
-    // Column widths
+    const XLSX = await import('xlsx');
+    const ws = XLSX.utils.json_to_sheet(clienteRows);
     ws['!cols'] = [
-      { wch: 35 }, // Nome do Cliente
-      { wch: 30 }, // Email
-      { wch: 18 }, // CNPJ
-      { wch: 25 }, // Comercial
-      { wch: 20 }, // Valor Transacionado
-      { wch: 16 }, // Receita Bruta
-      { wch: 16 }, // Receita Líquida
-      { wch: 14 }, // Comissão
+      { wch: 35 }, { wch: 30 }, { wch: 18 }, { wch: 25 },
+      { wch: 20 }, { wch: 16 }, { wch: 16 }, { wch: 14 },
     ];
-
-    // Format currency cells (columns E-H = indices 4-7)
-    const currencyCols = [4, 5, 6, 7];
     const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
     for (let R = range.s.r + 1; R <= range.e.r; R++) {
-      currencyCols.forEach(C => {
+      [4, 5, 6, 7].forEach(C => {
         const cellAddr = XLSX.utils.encode_cell({ r: R, c: C });
-        if (ws[cellAddr]) {
-          ws[cellAddr].z = 'R$ #,##0.00';
-        }
+        if (ws[cellAddr]) ws[cellAddr].z = 'R$ #,##0.00';
       });
     }
-
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Comissões por Cliente');
     XLSX.writeFile(wb, `comissoes-clientes-${periodoLabel}.xlsx`);
   };
 
-  const exportSummaryExcel = () => {
+  const exportSummaryExcel = async () => {
     if (filteredCommissions.length === 0) return;
-
+    const XLSX = await import('xlsx');
     const data = filteredCommissions.map(u => ({
       'Comercial': u.userName,
       'Clientes Ativos': u.leadsCount,
@@ -229,14 +200,7 @@ export default function GestaoComissoes() {
     }));
 
     const ws = XLSX.utils.json_to_sheet(data);
-    ws['!cols'] = [
-      { wch: 25 },
-      { wch: 15 },
-      { wch: 18 },
-      { wch: 16 },
-      { wch: 14 },
-    ];
-
+    ws['!cols'] = [{ wch: 25 }, { wch: 15 }, { wch: 18 }, { wch: 16 }, { wch: 14 }];
     const range = XLSX.utils.decode_range(ws['!ref'] || 'A1');
     for (let R = range.s.r + 1; R <= range.e.r; R++) {
       [2, 3, 4].forEach(C => {
@@ -244,25 +208,42 @@ export default function GestaoComissoes() {
         if (ws[cellAddr]) ws[cellAddr].z = 'R$ #,##0.00';
       });
     }
-
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Resumo por Comercial');
     XLSX.writeFile(wb, `comissoes-resumo-${periodoLabel}.xlsx`);
   };
 
-  if (isLoading || subsLoading || commissionLoading) {
-    return (
-      <div className="space-y-6">
-        <Skeleton className="h-10 w-64" />
-        <Skeleton className="h-32 w-full" />
-        <Skeleton className="h-96 w-full" />
-      </div>
-    );
-  }
+  const columns: ColumnDef<ComissaoByUser>[] = [
+    {
+      accessorKey: 'userName',
+      header: ({ column }) => <SortableHeader column={column}>Comercial</SortableHeader>,
+      cell: ({ row }) => <span className="font-medium">{row.original.userName}</span>,
+    },
+    {
+      accessorKey: 'leadsCount',
+      header: ({ column }) => <SortableHeader column={column} className="ml-auto">Clientes Ativos</SortableHeader>,
+      cell: ({ row }) => <div className="text-right">{row.original.leadsCount}</div>,
+    },
+    {
+      accessorKey: 'transacionado',
+      header: ({ column }) => <SortableHeader column={column} className="ml-auto">Transacionado</SortableHeader>,
+      cell: ({ row }) => <div className="text-right font-medium text-blue-600">{formatMoney(row.original.transacionado)}</div>,
+    },
+    {
+      accessorKey: 'receita',
+      header: ({ column }) => <SortableHeader column={column} className="ml-auto">Receita Líquida</SortableHeader>,
+      cell: ({ row }) => <div className="text-right">{formatMoney(row.original.receita)}</div>,
+    },
+    {
+      accessorKey: 'comissao',
+      header: ({ column }) => <SortableHeader column={column} className="ml-auto">Comissão</SortableHeader>,
+      cell: ({ row }) => <div className="text-right font-bold text-green-600">{formatMoney(row.original.comissao)}</div>,
+    },
+  ];
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
+    <div className="space-y-6 animate-in fade-in duration-500">
+      {/* Header - Static */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="icon" onClick={() => navigate('/gestao')} className="-ml-2">
@@ -275,7 +256,7 @@ export default function GestaoComissoes() {
         </div>
       </div>
 
-      {/* Date / Month Selection */}
+      {/* Date / Month Selection - Static */}
       <Card className="bg-muted/30 border-dashed">
         <CardContent className="p-4 flex flex-col gap-4">
           <div className="flex items-center gap-4 border-b border-border/50 pb-2 mb-2">
@@ -372,110 +353,103 @@ export default function GestaoComissoes() {
         </CardContent>
       </Card>
 
-      {/* Report Table */}
-      <Card>
-        <CardHeader className="space-y-4">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Coins className="h-5 w-5 text-primary" />
-                Detalhamento por Comercial
-              </CardTitle>
-              <CardDescription>
-                Período: {reportMode === 'month' ? `${mes}/${ano}` : `${startDate && format(new Date(startDate), 'dd/MM/yyyy')} até ${endDate && format(new Date(endDate), 'dd/MM/yyyy')}`}
-              </CardDescription>
-            </div>
-            <div className="flex items-center gap-2 flex-wrap">
-              <div className="relative w-full sm:w-64">
-                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Buscar comercial..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-8 h-9"
-                />
+      {isLoading || subsLoading || commissionLoading ? (
+        <Card>
+          <CardHeader>
+            <div className="flex justify-between items-center">
+              <div className="space-y-2">
+                <Skeleton className="h-6 w-48" />
+                <Skeleton className="h-4 w-32" />
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-9"
-                onClick={exportSummaryExcel}
-                disabled={filteredCommissions.length === 0}
-                title="Exportar resumo por comercial"
-              >
-                <Download className="h-4 w-4 mr-2" />
-                Resumo
-              </Button>
-              <Button
-                variant="default"
-                size="sm"
-                className="h-9"
-                onClick={exportDetailedExcel}
-                disabled={clienteRows.length === 0}
-                title="Exportar detalhado por cliente"
-              >
-                <FileSpreadsheet className="h-4 w-4 mr-2" />
-                Por Cliente
-              </Button>
+              <div className="flex gap-2">
+                <Skeleton className="h-9 w-64" />
+                <Skeleton className="h-9 w-24" />
+                <Skeleton className="h-9 w-24" />
+              </div>
             </div>
-          </div>
-        </CardHeader>
-        <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Comercial</TableHead>
-                <TableHead className="text-right">Clientes Ativos</TableHead>
-                <TableHead className="text-right">Transacionado</TableHead>
-                <TableHead className="text-right">Receita Líquida</TableHead>
-                <TableHead className="text-right">Comissão</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredCommissions.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={5} className="text-center py-12 text-muted-foreground">
-                    {searchTerm ? `Nenhum resultado para "${searchTerm}"` : 'Nenhum dado encontrado para o período selecionado.'}
-                  </TableCell>
-                </TableRow>
-              ) : (
-                filteredCommissions.map((u) => (
-                  <TableRow key={u.userId}>
-                    <TableCell className="font-medium">{u.userName}</TableCell>
-                    <TableCell className="text-right">{u.leadsCount}</TableCell>
-                    <TableCell className="text-right font-medium text-blue-600">
-                      {formatMoney(u.transacionado)}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {formatMoney(u.receita)}
-                    </TableCell>
-                    <TableCell className="text-right font-bold text-green-600">
-                      {formatMoney(u.comissao)}
-                    </TableCell>
+          </CardHeader>
+          <CardContent className="p-0">
+            <div className="space-y-1">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <div key={i} className="flex items-center gap-4 px-4 py-3 border-b border-border/50">
+                  <Skeleton className="h-4 flex-1" />
+                  <Skeleton className="h-4 w-24" />
+                  <Skeleton className="h-4 w-32" />
+                  <Skeleton className="h-4 w-32" />
+                  <Skeleton className="h-4 w-32" />
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        <Card>
+          <CardHeader className="space-y-4">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Coins className="h-5 w-5 text-primary" />
+                  Detalhamento por Comercial
+                </CardTitle>
+                <CardDescription>
+                  Período: {reportMode === 'month' ? `${mes}/${ano}` : `${startDate && format(new Date(startDate), 'dd/MM/yyyy')} até ${endDate && format(new Date(endDate), 'dd/MM/yyyy')}`}
+                </CardDescription>
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <div className="relative w-full sm:w-64">
+                  <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Buscar comercial..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="pl-8 h-9"
+                  />
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-9"
+                  onClick={exportSummaryExcel}
+                  disabled={filteredCommissions.length === 0}
+                  title="Exportar resumo por comercial"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Resumo
+                </Button>
+                <Button
+                  variant="default"
+                  size="sm"
+                  className="h-9"
+                  onClick={exportDetailedExcel}
+                  disabled={clienteRows.length === 0}
+                  title="Exportar detalhado por cliente"
+                >
+                  <FileSpreadsheet className="h-4 w-4 mr-2" />
+                  Por Cliente
+                </Button>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="p-0">
+            <DataTable
+              columns={columns}
+              data={filteredCommissions}
+              emptyMessage={searchTerm ? `Nenhum resultado para "${searchTerm}"` : 'Nenhum dado encontrado para o período selecionado.'}
+              renderAfterRows={() =>
+                filteredCommissions.length > 0 ? (
+                  <TableRow className="bg-muted/50 font-bold border-t-2">
+                    <TableCell>TOTAL {searchTerm ? '(Filtrado)' : 'ACUMULADO'}</TableCell>
+                    <TableCell className="text-right">{filteredCommissions.reduce((acc, u) => acc + u.leadsCount, 0)}</TableCell>
+                    <TableCell className="text-right text-blue-600">{formatMoney(filteredCommissions.reduce((acc, u) => acc + u.transacionado, 0))}</TableCell>
+                    <TableCell className="text-right">{formatMoney(filteredCommissions.reduce((acc, u) => acc + u.receita, 0))}</TableCell>
+                    <TableCell className="text-right text-green-600">{formatMoney(filteredCommissions.reduce((acc, u) => acc + u.comissao, 0))}</TableCell>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-            {filteredCommissions.length > 0 && (
-              <TableRow className="bg-muted/50 font-bold border-t-2">
-                <TableCell>TOTAL {searchTerm ? '(Filtrado)' : 'ACUMULADO'}</TableCell>
-                <TableCell className="text-right">
-                  {filteredCommissions.reduce((acc, u) => acc + u.leadsCount, 0)}
-                </TableCell>
-                <TableCell className="text-right text-blue-600">
-                  {formatMoney(filteredCommissions.reduce((acc, u) => acc + u.transacionado, 0))}
-                </TableCell>
-                <TableCell className="text-right">
-                  {formatMoney(filteredCommissions.reduce((acc, u) => acc + u.receita, 0))}
-                </TableCell>
-                <TableCell className="text-right text-green-600">
-                  {formatMoney(filteredCommissions.reduce((acc, u) => acc + u.comissao, 0))}
-                </TableCell>
-              </TableRow>
-            )}
-          </Table>
-        </CardContent>
-      </Card>
+                ) : null
+              }
+            />
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

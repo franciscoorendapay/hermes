@@ -12,6 +12,7 @@ export interface Subordinate {
   regiao: string | null;
   role: 'comercial' | 'regional' | 'nacional' | 'diretor' | 'logistica' | 'admin';
   status: number;
+  includeInStats: boolean;
 }
 
 export function useSubordinates() {
@@ -34,7 +35,8 @@ export function useSubordinates() {
         telefone: u.phone,
         regiao: u.region,
         role: u.role,
-        status: u.status
+        status: u.status,
+        includeInStats: u.includeInStats !== false,
       }));
 
       // Filter logic mimicking the original behavior + API realities

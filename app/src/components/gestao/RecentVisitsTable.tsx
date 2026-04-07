@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
+import { ColumnDef } from '@tanstack/react-table';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { MapPin, Calendar, CheckCircle, Clock, XCircle } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { http } from '@/shared/api/http';
+import { DataTable, SortableHeader } from '@/components/ui/data-table';
 
 interface RecentVisitsTableProps {
   userId: string;
@@ -93,6 +94,38 @@ export function RecentVisitsTable({ userId }: RecentVisitsTableProps) {
     }
   };
 
+  const columns: ColumnDef<Visit>[] = [
+    {
+      accessorKey: 'data_visita',
+      header: ({ column }) => <SortableHeader column={column}>Data</SortableHeader>,
+      cell: ({ row }) => (
+        <div className="flex items-center gap-2 font-medium">
+          <Calendar className="h-4 w-4 text-muted-foreground" />
+          {row.original.data_visita
+            ? format(new Date(row.original.data_visita), 'dd/MM/yyyy', { locale: ptBR })
+            : '-'}
+        </div>
+      ),
+    },
+    {
+      accessorKey: 'tipo',
+      header: 'Tipo',
+      enableSorting: false,
+      cell: ({ row }) => <Badge variant="outline">{getTipoLabel(row.original.tipo)}</Badge>,
+    },
+    {
+      accessorKey: 'lead_nome',
+      header: ({ column }) => <SortableHeader column={column}>Estabelecimento</SortableHeader>,
+      cell: ({ row }) => <span className="max-w-[200px] truncate block">{row.original.lead_nome}</span>,
+    },
+    {
+      accessorKey: 'status',
+      header: 'Status',
+      enableSorting: false,
+      cell: ({ row }) => getStatusBadge(row.original.status),
+    },
+  ];
+
   if (isLoading) {
     return (
       <Card>
@@ -128,37 +161,11 @@ export function RecentVisitsTable({ userId }: RecentVisitsTableProps) {
             <p>Nenhuma visita registrada</p>
           </div>
         ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Data</TableHead>
-                <TableHead>Tipo</TableHead>
-                <TableHead>Estabelecimento</TableHead>
-                <TableHead>Status</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {visits.map(visit => (
-                <TableRow key={visit.id}>
-                  <TableCell className="font-medium">
-                    <div className="flex items-center gap-2">
-                      <Calendar className="h-4 w-4 text-muted-foreground" />
-                      {visit.data_visita
-                        ? format(new Date(visit.data_visita), 'dd/MM/yyyy', { locale: ptBR })
-                        : '-'}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="outline">{getTipoLabel(visit.tipo)}</Badge>
-                  </TableCell>
-                  <TableCell className="max-w-[200px] truncate">
-                    {visit.lead_nome}
-                  </TableCell>
-                  <TableCell>{getStatusBadge(visit.status)}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+          <DataTable
+            columns={columns}
+            data={visits}
+            emptyMessage="Nenhuma visita registrada"
+          />
         )}
       </CardContent>
     </Card>
