@@ -13,6 +13,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { http } from "@/shared/api/http";
+import { formatMoney } from "@/lib/formatters";
+import { resolveUploadUrl } from "@/lib/utils";
 import { toast } from "sonner";
 import { Loader2, Search, Pencil, Users, FileText, User, Image as ImageIcon } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
@@ -157,6 +159,15 @@ export default function AdminLeads() {
       cell: ({ row }) => <span className="text-sm">{row.original.phone || '-'}</span>,
     },
     {
+      accessorKey: 'tpv',
+      header: ({ column }) => <SortableHeader column={column} className="ml-auto">TPV</SortableHeader>,
+      cell: ({ row }) => (
+        <div className="text-right text-sm font-medium">
+          {row.original.tpv ? formatMoney(parseFloat(row.original.tpv)) : '-'}
+        </div>
+      ),
+    },
+    {
       id: 'cidade',
       accessorFn: (row) => row.city ? `${row.city}/${row.state || ''}` : '',
       header: ({ column }) => <SortableHeader column={column}>Cidade/UF</SortableHeader>,
@@ -174,16 +185,16 @@ export default function AdminLeads() {
         <div className="flex gap-1 flex-wrap max-w-[120px]">
           {row.original.documents ? (
             <>
-              {row.original.documents.cnpj && <a href={row.original.documents.cnpj} target="_blank" rel="noreferrer" title="CNPJ/Contrato"><FileText className="h-4 w-4 text-green-500 hover:text-green-700 cursor-pointer" /></a>}
-              {row.original.documents.photo && <a href={row.original.documents.photo} target="_blank" rel="noreferrer" title="Foto Antiga"><FileText className="h-4 w-4 text-green-500 hover:text-green-700 cursor-pointer" /></a>}
-              {row.original.documents.residence && <a href={row.original.documents.residence} target="_blank" rel="noreferrer" title="Residência"><FileText className="h-4 w-4 text-green-500 hover:text-green-700 cursor-pointer" /></a>}
-              {row.original.documents.activity && <a href={row.original.documents.activity} target="_blank" rel="noreferrer" title="Atividade"><FileText className="h-4 w-4 text-green-500 hover:text-green-700 cursor-pointer" /></a>}
-              {row.original.documents.selfie && <a href={row.original.documents.selfie} target="_blank" rel="noreferrer" title="Selfie"><User className="h-4 w-4 text-blue-500 hover:text-blue-700 cursor-pointer" /></a>}
-              {row.original.documents.cnhFull && <a href={row.original.documents.cnhFull} target="_blank" rel="noreferrer" title="CNH Completa"><ImageIcon className="h-4 w-4 text-blue-500 hover:text-blue-700 cursor-pointer" /></a>}
-              {row.original.documents.cnhFront && <a href={row.original.documents.cnhFront} target="_blank" rel="noreferrer" title="CNH Frente"><ImageIcon className="h-4 w-4 text-blue-500 hover:text-blue-700 cursor-pointer" /></a>}
-              {row.original.documents.cnhBack && <a href={row.original.documents.cnhBack} target="_blank" rel="noreferrer" title="CNH Verso"><ImageIcon className="h-4 w-4 text-blue-500 hover:text-blue-700 cursor-pointer" /></a>}
-              {row.original.documents.rgFront && <a href={row.original.documents.rgFront} target="_blank" rel="noreferrer" title="RG Frente"><ImageIcon className="h-4 w-4 text-blue-500 hover:text-blue-700 cursor-pointer" /></a>}
-              {row.original.documents.rgBack && <a href={row.original.documents.rgBack} target="_blank" rel="noreferrer" title="RG Verso"><ImageIcon className="h-4 w-4 text-blue-500 hover:text-blue-700 cursor-pointer" /></a>}
+              {row.original.documents.cnpj && <a href={resolveUploadUrl(row.original.documents.cnpj)!} target="_blank" rel="noreferrer" title="CNPJ/Contrato"><FileText className="h-4 w-4 text-green-500 hover:text-green-700 cursor-pointer" /></a>}
+              {row.original.documents.photo && <a href={resolveUploadUrl(row.original.documents.photo)!} target="_blank" rel="noreferrer" title="Foto Antiga"><FileText className="h-4 w-4 text-green-500 hover:text-green-700 cursor-pointer" /></a>}
+              {row.original.documents.residence && <a href={resolveUploadUrl(row.original.documents.residence)!} target="_blank" rel="noreferrer" title="Residência"><FileText className="h-4 w-4 text-green-500 hover:text-green-700 cursor-pointer" /></a>}
+              {row.original.documents.activity && <a href={resolveUploadUrl(row.original.documents.activity)!} target="_blank" rel="noreferrer" title="Atividade"><FileText className="h-4 w-4 text-green-500 hover:text-green-700 cursor-pointer" /></a>}
+              {row.original.documents.selfie && <a href={resolveUploadUrl(row.original.documents.selfie)!} target="_blank" rel="noreferrer" title="Selfie"><User className="h-4 w-4 text-blue-500 hover:text-blue-700 cursor-pointer" /></a>}
+              {row.original.documents.cnhFull && <a href={resolveUploadUrl(row.original.documents.cnhFull)!} target="_blank" rel="noreferrer" title="CNH Completa"><ImageIcon className="h-4 w-4 text-blue-500 hover:text-blue-700 cursor-pointer" /></a>}
+              {row.original.documents.cnhFront && <a href={resolveUploadUrl(row.original.documents.cnhFront)!} target="_blank" rel="noreferrer" title="CNH Frente"><ImageIcon className="h-4 w-4 text-blue-500 hover:text-blue-700 cursor-pointer" /></a>}
+              {row.original.documents.cnhBack && <a href={resolveUploadUrl(row.original.documents.cnhBack)!} target="_blank" rel="noreferrer" title="CNH Verso"><ImageIcon className="h-4 w-4 text-blue-500 hover:text-blue-700 cursor-pointer" /></a>}
+              {row.original.documents.rgFront && <a href={resolveUploadUrl(row.original.documents.rgFront)!} target="_blank" rel="noreferrer" title="RG Frente"><ImageIcon className="h-4 w-4 text-blue-500 hover:text-blue-700 cursor-pointer" /></a>}
+              {row.original.documents.rgBack && <a href={resolveUploadUrl(row.original.documents.rgBack)!} target="_blank" rel="noreferrer" title="RG Verso"><ImageIcon className="h-4 w-4 text-blue-500 hover:text-blue-700 cursor-pointer" /></a>}
             </>
           ) : (
             <span className="text-xs text-muted-foreground italic">Nenhum</span>

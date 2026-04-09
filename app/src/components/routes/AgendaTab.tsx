@@ -15,6 +15,7 @@ import {
   Heart,
   RefreshCw,
   FileText,
+  Pencil,
 } from "lucide-react";
 import { format, isSameDay, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -312,6 +313,17 @@ export function AgendaTab({
     refetch();
   };
 
+  // Mapeia o funil atual para a ação de EDIÇÃO (mesmo passo, não avança)
+  const getEditActionForFunil = (funilApp: number | null): string | null => {
+    switch (funilApp) {
+      case 1: return "prospeccao";
+      case 2: return "qualificacao";
+      case 3: return "negociacao";
+      case 4: return "precificacao";
+      default: return null;
+    }
+  };
+
   // Determine which action to show based on lead status
   const getActionConfig = useCallback((visit: ScheduledVisit): ActionConfig => {
     // Sem lead: prospecção
@@ -535,27 +547,43 @@ export function AgendaTab({
                     </div>
                   </div>
 
-                  {visit.status === "pending" && (
-                    <div className="flex gap-2 mt-3 pt-3 border-t border-border/50">
-                      <Button
-                        size="sm"
-                        variant={actionConfig.variant}
-                        className="flex-1 h-9"
-                        onClick={() => handleActionClick(visit, actionConfig.type)}
-                      >
-                        <Icon className="h-4 w-4 mr-1" />
-                        {actionConfig.label}
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-9"
-                        onClick={() => cancelVisit(visit.id)}
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  )}
+                  {visit.status === "pending" && (() => {
+                    const editAction = visit.hasLead ? getEditActionForFunil(visit.funilApp) : null;
+                    return (
+                      <div className="flex gap-2 mt-3 pt-3 border-t border-border/50">
+                        {/* Botão Editar — reflete estado atual do lead */}
+                        {editAction && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="flex-1 h-9"
+                            onClick={() => openRetorno(visit, editAction)}
+                          >
+                            <Pencil className="h-4 w-4 mr-1" />
+                            Editar
+                          </Button>
+                        )}
+                        {/* Botão Avançar — próxima etapa ou ação principal */}
+                        <Button
+                          size="sm"
+                          variant={actionConfig.variant}
+                          className="flex-1 h-9"
+                          onClick={() => handleActionClick(visit, actionConfig.type)}
+                        >
+                          <Icon className="h-4 w-4 mr-1" />
+                          {actionConfig.label}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-9 px-2"
+                          onClick={() => cancelVisit(visit.id)}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    );
+                  })()}
                 </div>
               );
             })

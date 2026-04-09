@@ -148,11 +148,11 @@ class TransacionadoController extends AbstractController
                 }
 
                 if ($leadId) {
-                    $totalT = (float)($empresa['total']['transacionado'] ?? 0);
                     $pixT = (float)($empresa['pix']['transacionado'] ?? 0);
                     $cartaoT = (float)($empresa['cartao']['transacionado'] ?? 0);
                     $maquininhaT = (float)($empresa['maquininha']['transacionado'] ?? 0);
                     $boletoT = (float)($empresa['boleto']['transacionado'] ?? 0);
+                    $totalT = $pixT + $cartaoT + $maquininhaT + $boletoT;
 
                     // Calculate dominant method
                     $methods = [
@@ -186,11 +186,11 @@ class TransacionadoController extends AbstractController
                 if (isset($tokenToLeadId[$token])) {
                     $leadId = $tokenToLeadId[$token];
                     
-                    $totalT = (float)($dados['transacionado'] ?? $dados['total_transacionado'] ?? 0);
                     $pixT = (float)($dados['pix'] ?? 0);
                     $cartaoT = (float)($dados['cartao'] ?? 0);
                     $maquininhaT = (float)($dados['maquininha'] ?? 0);
                     $boletoT = (float)($dados['boleto'] ?? 0);
+                    $totalT = $pixT + $cartaoT + $maquininhaT + $boletoT;
 
                     $methods = [
                         'PIX' => $pixT,

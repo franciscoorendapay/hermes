@@ -28,6 +28,11 @@ services:
         arguments:
             $targetDirectory: '%upload_dir%'
 
+    App\Controller\ServeUploadController:
+        arguments:
+            $uploadDir: '%upload_dir%'
+        tags: ['controller.service_arguments']
+
     App\Security\AuthenticationFailureHandler:
         arguments:
             $lexikHandler: '@lexik_jwt_authentication.handler.authentication_failure'

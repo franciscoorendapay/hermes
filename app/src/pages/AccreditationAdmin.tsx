@@ -15,6 +15,7 @@ import { AccreditationAPI } from "@/features/accreditations/accreditations.schem
 import { toast } from "sonner";
 import { Loader2, CheckCircle, XCircle, FileText, User, Image as ImageIcon } from "lucide-react";
 import { formatDateToDisplay } from "@/lib/formatters";
+import { resolveUploadUrl } from "@/lib/utils";
 import { PageHeader } from "@/components/layout/PageHeader";
 
 export default function AccreditationAdmin() {
@@ -129,18 +130,18 @@ export default function AccreditationAdmin() {
                     </TableCell>
                     <TableCell>
                       <div className="flex gap-2 flex-wrap">
-                        {acc.docCnpjUrl && <a href={acc.docCnpjUrl} target="_blank" rel="noreferrer" title="CNPJ/Contrato"><FileText className="h-4 w-4 text-green-500 hover:text-green-700 cursor-pointer" /></a>}
-                        {acc.docPhotoUrl && <a href={acc.docPhotoUrl} target="_blank" rel="noreferrer" title="Doc Antigo"><FileText className="h-4 w-4 text-green-500 hover:text-green-700 cursor-pointer" /></a>}
-                        {acc.docResidenceUrl && <a href={acc.docResidenceUrl} target="_blank" rel="noreferrer" title="Residência"><FileText className="h-4 w-4 text-green-500 hover:text-green-700 cursor-pointer" /></a>}
-                        {acc.docActivityUrl && <a href={acc.docActivityUrl} target="_blank" rel="noreferrer" title="Atividade"><FileText className="h-4 w-4 text-green-500 hover:text-green-700 cursor-pointer" /></a>}
-                        
+                        {acc.docCnpjUrl && <a href={resolveUploadUrl(acc.docCnpjUrl)!} target="_blank" rel="noreferrer" title="CNPJ/Contrato"><FileText className="h-4 w-4 text-green-500 hover:text-green-700 cursor-pointer" /></a>}
+                        {acc.docPhotoUrl && <a href={resolveUploadUrl(acc.docPhotoUrl)!} target="_blank" rel="noreferrer" title="Doc Antigo"><FileText className="h-4 w-4 text-green-500 hover:text-green-700 cursor-pointer" /></a>}
+                        {acc.docResidenceUrl && <a href={resolveUploadUrl(acc.docResidenceUrl)!} target="_blank" rel="noreferrer" title="Residência"><FileText className="h-4 w-4 text-green-500 hover:text-green-700 cursor-pointer" /></a>}
+                        {acc.docActivityUrl && <a href={resolveUploadUrl(acc.docActivityUrl)!} target="_blank" rel="noreferrer" title="Atividade"><FileText className="h-4 w-4 text-green-500 hover:text-green-700 cursor-pointer" /></a>}
+
                         {/* Novos Docs KYC */}
-                        {acc.selfieUrl && <a href={acc.selfieUrl} target="_blank" rel="noreferrer" title="Selfie"><User className="h-4 w-4 text-blue-500 hover:text-blue-700 cursor-pointer" /></a>}
-                        {acc.cnhFullUrl && <a href={acc.cnhFullUrl} target="_blank" rel="noreferrer" title="CNH Completa"><ImageIcon className="h-4 w-4 text-blue-500 hover:text-blue-700 cursor-pointer" /></a>}
-                        {acc.cnhFrontUrl && <a href={acc.cnhFrontUrl} target="_blank" rel="noreferrer" title="CNH Frente"><ImageIcon className="h-4 w-4 text-blue-500 hover:text-blue-700 cursor-pointer" /></a>}
-                        {acc.cnhBackUrl && <a href={acc.cnhBackUrl} target="_blank" rel="noreferrer" title="CNH Verso"><ImageIcon className="h-4 w-4 text-blue-500 hover:text-blue-700 cursor-pointer" /></a>}
-                        {acc.rgFrontUrl && <a href={acc.rgFrontUrl} target="_blank" rel="noreferrer" title="RG Frente"><ImageIcon className="h-4 w-4 text-blue-500 hover:text-blue-700 cursor-pointer" /></a>}
-                        {acc.rgBackUrl && <a href={acc.rgBackUrl} target="_blank" rel="noreferrer" title="RG Verso"><ImageIcon className="h-4 w-4 text-blue-500 hover:text-blue-700 cursor-pointer" /></a>}
+                        {acc.selfieUrl && <a href={resolveUploadUrl(acc.selfieUrl)!} target="_blank" rel="noreferrer" title="Selfie"><User className="h-4 w-4 text-blue-500 hover:text-blue-700 cursor-pointer" /></a>}
+                        {acc.cnhFullUrl && <a href={resolveUploadUrl(acc.cnhFullUrl)!} target="_blank" rel="noreferrer" title="CNH Completa"><ImageIcon className="h-4 w-4 text-blue-500 hover:text-blue-700 cursor-pointer" /></a>}
+                        {acc.cnhFrontUrl && <a href={resolveUploadUrl(acc.cnhFrontUrl)!} target="_blank" rel="noreferrer" title="CNH Frente"><ImageIcon className="h-4 w-4 text-blue-500 hover:text-blue-700 cursor-pointer" /></a>}
+                        {acc.cnhBackUrl && <a href={resolveUploadUrl(acc.cnhBackUrl)!} target="_blank" rel="noreferrer" title="CNH Verso"><ImageIcon className="h-4 w-4 text-blue-500 hover:text-blue-700 cursor-pointer" /></a>}
+                        {acc.rgFrontUrl && <a href={resolveUploadUrl(acc.rgFrontUrl)!} target="_blank" rel="noreferrer" title="RG Frente"><ImageIcon className="h-4 w-4 text-blue-500 hover:text-blue-700 cursor-pointer" /></a>}
+                        {acc.rgBackUrl && <a href={resolveUploadUrl(acc.rgBackUrl)!} target="_blank" rel="noreferrer" title="RG Verso"><ImageIcon className="h-4 w-4 text-blue-500 hover:text-blue-700 cursor-pointer" /></a>}
                       </div>
                     </TableCell>
                     <TableCell>

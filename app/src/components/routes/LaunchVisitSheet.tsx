@@ -230,7 +230,7 @@ export function LaunchVisitSheet({
 }: LaunchVisitSheetProps) {
   const geolocation = useGeolocation();
   const auth = useAuth();
-  const { createReminderForLead } = useReminders(!!auth.user);
+  const { createReminderForLead, updateReminderStatus, updateReminderWithLead, reminders } = useReminders(!!auth.user);
 
   const [step, setStep] = useState<VisitStep>("select-type");
   const [visitType, setVisitType] = useState<VisitType | null>(null);
@@ -1253,13 +1253,35 @@ export function LaunchVisitSheet({
     }
   };
 
+  // Completa automaticamente um agendamento pendente ao salvar o lead
+  const completePendingReminder = async (leadId: string) => {
+    try {
+      if (reminderId) {
+        // Usa updateReminderWithLead para vincular o lead E marcar como concluído numa só chamada
+        const result = await updateReminderWithLead(reminderId, leadId);
+        if (!result.success) {
+          console.warn("[completePendingReminder] Falha ao atualizar agendamento:", result.error);
+        }
+        return;
+      }
+      // Sem reminderId explícito: busca pendente na lista local pelo leadId
+      const pending = reminders?.find(
+        (r: any) => r.lead_id === leadId && r.status === "pendente"
+      );
+      if (pending) {
+        await updateReminderStatus(String(pending.id), "concluido");
+      }
+    } catch (e) {
+      console.warn("[completePendingReminder] Erro ao concluir agendamento:", e);
+    }
+  };
+
   const handleProsseguirQualificacao = async () => {
     if (!validateProspeccaoFields()) return;
 
     try {
-      // Upsert at current step (Stage 1) before moving to next
-      const result = await upsertLead(1);
-      await registerVisitLog(String(result.id), "prospeccao", "concluida", "Prosseguiu para qualificação");
+      // Salva o estado atual e avança para o próximo passo — sem criar visita nem agendamento
+      await upsertLead(1);
       setStep("qualificacao");
     } catch (e) {
       // toast already shown in upsertLead
@@ -1271,8 +1293,7 @@ export function LaunchVisitSheet({
     if (!validateQualificacaoFields()) return;
 
     try {
-      const result = await upsertLead(2);
-      await registerVisitLog(String(result.id), "qualificacao", "concluida", "Prosseguiu para negociação");
+      await upsertLead(2);
       setStep("negociacao");
     } catch (e) { }
   };
@@ -1283,8 +1304,7 @@ export function LaunchVisitSheet({
     if (!validateNegociacaoFields()) return;
 
     try {
-      const result = await upsertLead(3);
-      await registerVisitLog(String(result.id), "negociacao", "concluida", "Prosseguiu para precificação");
+      await upsertLead(3);
       setStep("precificacao");
     } catch (e) { }
   };
@@ -1292,23 +1312,23 @@ export function LaunchVisitSheet({
   const handleSalvarProspeccao = () => {
     if (!validateProspeccaoFields()) return;
 
-    checkLocationAndSubmit(async () => {
+    // Quando vem de agendamento, não bloqueia por localização
+    const executar = async () => {
       setLoading(true);
 
       try {
         const result = await upsertLead(1);
         await registerVisitLog(String(result.id), "prospeccao", "concluida");
+        await completePendingReminder(String(result.id));
 
         toast.success("Visita registrada com sucesso!", {
           description: `Lead: ${result.tradeName || result.companyName} - Status: Prospecção`
         });
         onLeadSaved?.();
-        if (onLeadSavedWithId) {
-          onLeadSavedWithId(String(result.id));
-        }
+        onLeadSavedWithId?.(String(result.id));
 
-        // Se veio de um agendamento, notificar com o leadId
-        if (reminderId && onLeadSavedWithId) {
+        if (reminderId) {
+          // Veio de agendamento: agendamento já foi concluído, fechar direto
           setLoading(false);
           onOpenChange(false);
           return;
@@ -1320,7 +1340,14 @@ export function LaunchVisitSheet({
       } catch (error) {
         setLoading(false);
       }
-    });
+    };
+
+    if (reminderId) {
+      // Veio de agendamento: pula verificação de localização
+      executar();
+    } else {
+      checkLocationAndSubmit(executar);
+    }
   };
 
   const handleSalvarQualificacao = () => {
@@ -1334,52 +1361,49 @@ export function LaunchVisitSheet({
       return;
     }
 
-    checkLocationAndSubmit(async () => {
+    const executarQual = async () => {
       setLoading(true);
-
       try {
         const result = await upsertLead(2);
         await registerVisitLog(String(result.id), "qualificacao", "concluida");
-
+        await completePendingReminder(String(result.id));
         toast.success("Qualificação salva com sucesso!", {
           description: `Lead: ${result.tradeName || result.companyName} - Status: Qualificação`
         });
         onLeadSaved?.();
-
         setLoading(false);
         setShowReminderConfirmation(true);
       } catch (error) {
         setLoading(false);
       }
-    });
+    };
+    reminderId ? executarQual() : checkLocationAndSubmit(executarQual);
   };
 
   const handleSalvarNegociacao = () => {
-    // When continuing from an existing lead, skip earlier validations
     if (!directAction) {
       if (!validateProspeccaoFields()) return;
       if (!validateQualificacaoFields()) return;
     }
     if (!validateNegociacaoFields()) return;
 
-    checkLocationAndSubmit(async () => {
+    const executarNeg = async () => {
       setLoading(true);
-
       try {
         const result = await upsertLead(3);
         await registerVisitLog(String(result.id), "negociacao", "concluida");
-
+        await completePendingReminder(String(result.id));
         toast.success("Proposta salva com sucesso!", {
           description: `Lead: ${result.tradeName || result.companyName} - Status: Proposta`
         });
         onLeadSaved?.();
-
         setLoading(false);
         setShowReminderConfirmation(true);
       } catch (error) {
         setLoading(false);
       }
-    });
+    };
+    reminderId ? executarNeg() : checkLocationAndSubmit(executarNeg);
   };
 
   // Auto-save quando usuário fecha o sheet sem prosseguir
@@ -1426,24 +1450,23 @@ export function LaunchVisitSheet({
       if (!validateNegociacaoFields()) return;
     }
 
-    checkLocationAndSubmit(async () => {
+    const executarPrec = async () => {
       setLoading(true);
-
       try {
         const result = await upsertLead(4);
         await registerVisitLog(String(result.id), "precificacao", "concluida");
-
+        await completePendingReminder(String(result.id));
         toast.success("Precificação salva com sucesso!", {
           description: `Lead: ${result.tradeName || result.companyName} - Status: Precificados`
         });
         onLeadSaved?.();
-
         setLoading(false);
         setShowReminderConfirmation(true);
       } catch (error) {
         setLoading(false);
       }
-    });
+    };
+    reminderId ? executarPrec() : checkLocationAndSubmit(executarPrec);
   };
 
 
@@ -1459,6 +1482,7 @@ export function LaunchVisitSheet({
     try {
       const result = await upsertLead(5);
       await registerVisitLog(String(result.id), "credenciamento", "concluida");
+      await completePendingReminder(String(result.id));
 
       toast.success("Lead credenciado com sucesso!", {
         description: `Lead: ${result.tradeName || result.companyName || selectedLead.nome_fantasia} - Status: Credenciado`

@@ -33,6 +33,10 @@ security:
             refresh_jwt:
                 check_path: /api/auth/refresh
 
+        uploads:
+            pattern: ^/uploads/
+            security: false
+
         api:
             pattern: ^/
             stateless: true
@@ -53,6 +57,7 @@ security:
         - { path: ^/api/auth/setup-password, roles: PUBLIC_ACCESS }
         - { path: ^/api/geocode, roles: PUBLIC_ACCESS }
         - { path: ^/api/places, roles: PUBLIC_ACCESS }
+        - { path: ^/uploads/, roles: PUBLIC_ACCESS }
         - { path: ^/users, roles: PUBLIC_ACCESS, methods: [POST] } # Allow registration
         - { path: ^/, roles: IS_AUTHENTICATED_FULLY }
 

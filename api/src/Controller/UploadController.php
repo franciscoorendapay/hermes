@@ -25,12 +25,10 @@ class UploadController extends AbstractController
 
         try {
             $filename = $fileUploader->upload($file);
-            // Assuming the folder is public/uploads, the URL would be /uploads/filename
-            // The service is configured to specific folder, let's assume usage pattern.
-            // Ideally we return the full relative path accessible via web.
-            
+            $baseUrl = $request->getSchemeAndHttpHost();
+
             return $this->json([
-                'url' => '/uploads/' . $filename,
+                'url' => $baseUrl . '/uploads/' . $filename,
                 'filename' => $filename
             ], Response::HTTP_CREATED);
         } catch (\Exception $e) {

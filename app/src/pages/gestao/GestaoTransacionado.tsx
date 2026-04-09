@@ -185,6 +185,11 @@ export default function GestaoTransacionado() {
       cell: ({ row }) => <div className="text-right text-purple-600 font-medium">{formatMoney(row.original.maquininha)}</div>,
     },
     {
+      accessorKey: 'boleto',
+      header: ({ column }) => <SortableHeader column={column} className="ml-auto">Boleto</SortableHeader>,
+      cell: ({ row }) => <div className="text-right text-orange-600 font-medium">{formatMoney(row.original.boleto)}</div>,
+    },
+    {
       accessorKey: 'total',
       header: ({ column }) => <SortableHeader column={column} className="ml-auto font-bold text-foreground">Total Geral</SortableHeader>,
       cell: ({ row }) => <div className="text-right font-black text-foreground bg-primary/[0.02]">{formatMoney(row.original.total)}</div>,
@@ -373,7 +378,7 @@ export default function GestaoTransacionado() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  {['Cliente / Comercial', 'PIX', 'Cartão', 'Maquininha', 'Total Geral', 'Principal Canal'].map(h => (
+                  {['Cliente / Comercial', 'PIX', 'Cartão', 'Maquininha', 'Boleto', 'Total Geral', 'Principal Canal'].map(h => (
                     <TableHead key={h}>{h}</TableHead>
                   ))}
                 </TableRow>
@@ -385,6 +390,7 @@ export default function GestaoTransacionado() {
                       <Skeleton className="h-4 w-36 mb-1" />
                       <Skeleton className="h-3 w-20" />
                     </TableCell>
+                    <TableCell><Skeleton className="h-4 w-20 ml-auto" /></TableCell>
                     <TableCell><Skeleton className="h-4 w-20 ml-auto" /></TableCell>
                     <TableCell><Skeleton className="h-4 w-20 ml-auto" /></TableCell>
                     <TableCell><Skeleton className="h-4 w-20 ml-auto" /></TableCell>
