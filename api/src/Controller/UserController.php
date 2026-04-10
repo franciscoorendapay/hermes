@@ -88,6 +88,10 @@ class UserController extends AbstractController
             $user->setRole($data['roles'][0]);
         }
 
+        if (array_key_exists('includeInStats', $data)) {
+            $user->setIncludeInStats((bool) $data['includeInStats']);
+        }
+
         $entityManager->persist($user);
         $entityManager->flush();
 
@@ -126,7 +130,7 @@ class UserController extends AbstractController
              $hashedPassword = $passwordHasher->hashPassword($user, $data['password']);
              $user->setPassword($hashedPassword);
         }
-        
+
         // Handle explicit 'roles' array to single role if sent
         if (isset($data['roles']) && is_array($data['roles']) && !empty($data['roles'])) {
             $user->setRole($data['roles'][0]);
@@ -135,7 +139,15 @@ class UserController extends AbstractController
             $user->setRole($data['role']);
         }
 
-        $entityManager->flush();
+        if (array_key_exists('includeInStats', $data)) {
+            $user->setIncludeInStats((bool) $data['includeInStats']);
+        }
+
+        try {
+            $entityManager->flush();
+        } catch (\Throwable $e) {
+            return $this->json(['error' => 'Erro ao salvar: ' . $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
 
         return $this->json($user, Response::HTTP_OK, [], ['groups' => 'user:read']);
     }
