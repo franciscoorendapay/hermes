@@ -32,6 +32,7 @@ import LogisticaHistorico from "./pages/LogisticaHistorico";
 
 import AdminDashboard from "./pages/AdminDashboard";
 import AdminLeads from "./pages/AdminLeads";
+import AdminDuplicateLeads from "./pages/AdminDuplicateLeads";
 import AccreditationAdmin from "./pages/AccreditationAdmin";
 import AdminLogs from "./pages/AdminLogs";
 import { MobilePwaBlocker } from "@/components/MobilePwaBlocker";
@@ -56,6 +57,7 @@ const App = () => {
             <Route element={<RequireAuth />}>
               <Route path="/admin" element={<AdminDashboard />} />
               <Route path="/admin/leads" element={<AdminLeads />} />
+              <Route path="/admin/leads/duplicates" element={<AdminDuplicateLeads />} />
               <Route path="/admin/accreditations" element={<AccreditationAdmin />} />
               <Route path="/admin/logs" element={<AdminLogs />} />
               <Route element={<AppLayout />}>

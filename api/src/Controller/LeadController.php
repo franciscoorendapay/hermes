@@ -140,6 +140,69 @@ class LeadController extends AbstractController
         return $this->json($results, Response::HTTP_OK);
     }
 
+    #[Route('/duplicates', name: 'app_lead_duplicates', methods: ['GET'])]
+    public function duplicates(EntityManagerInterface $entityManager): JsonResponse
+    {
+        $user = $this->getUser();
+        if (!$user instanceof User || !in_array($user->getRole(), ['admin', 'diretor', 'nacional', 'regional', 'manager'])) {
+            return $this->json(['error' => 'Access denied'], Response::HTTP_FORBIDDEN);
+        }
+
+        // Find documents that appear in more than one lead
+        $dupeDocs = $entityManager->createQueryBuilder()
+            ->select('l.document')
+            ->from(Lead::class, 'l')
+            ->where('l.document IS NOT NULL')
+            ->andWhere("l.document != ''")
+            ->groupBy('l.document')
+            ->having('COUNT(l.id) > 1')
+            ->getQuery()
+            ->getSingleColumnResult();
+
+        if (empty($dupeDocs)) {
+            return $this->json([]);
+        }
+
+        $leads = $entityManager->createQueryBuilder()
+            ->select('l.id, l.name, l.tradeName, l.companyName, l.document, l.phone, l.email, l.appFunnel, l.accreditation, l.createdAt, u.id as userId, u.name as userName')
+            ->from(Lead::class, 'l')
+            ->leftJoin('l.user', 'u')
+            ->where('l.document IN (:docs)')
+            ->setParameter('docs', $dupeDocs)
+            ->orderBy('l.document', 'ASC')
+            ->addOrderBy('l.createdAt', 'ASC')
+            ->getQuery()
+            ->getArrayResult();
+
+        // Group by document
+        $grouped = [];
+        foreach ($leads as $lead) {
+            $doc = $lead['document'];
+            if ($lead['createdAt'] instanceof \DateTimeInterface) {
+                $lead['createdAt'] = $lead['createdAt']->format('c');
+            }
+            $lead['user'] = ['id' => $lead['userId'], 'name' => $lead['userName']];
+            unset($lead['userId'], $lead['userName']);
+            $grouped[$doc][] = $lead;
+        }
+
+        $result = [];
+        foreach ($grouped as $doc => $group) {
+            $uniqueUserIds = array_unique(array_filter(array_map(fn($l) => $l['user']['id'], $group)));
+            $result[] = [
+                'document'       => $doc,
+                'total'          => count($group),
+                'different_users' => count($uniqueUserIds) > 1,
+                'leads'          => $group,
+            ];
+        }
+
+        // Sort: cross-user duplicates first
+        usort($result, fn($a, $b) => $b['different_users'] <=> $a['different_users']);
+
+        return $this->json($result);
+    }
+
     #[Route('/{id}', name: 'app_lead_show', methods: ['GET'])]
     public function show(string $id, LeadRepository $leadRepository): JsonResponse
     {

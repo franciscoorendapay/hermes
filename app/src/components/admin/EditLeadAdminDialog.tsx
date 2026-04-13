@@ -19,10 +19,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2 } from "lucide-react";
+import { Loader2, Trash2 } from "lucide-react";
 import { http } from "@/shared/api/http";
 import { toast } from "sonner";
 import { formatMoneyInput, parseMoneyInput } from "@/lib/formatters";
+import { MCC_ABECS } from "@/constants/mccAbecs";
 
 interface LeadData {
   id: string;
@@ -83,6 +84,7 @@ export function EditLeadAdminDialog({
   onSaved,
 }: EditLeadAdminDialogProps) {
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [loadingFull, setLoadingFull] = useState(false);
   const [users, setUsers] = useState<UserOption[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
@@ -329,6 +331,22 @@ export function EditLeadAdminDialog({
     }
   };
 
+  const handleDelete = async () => {
+    if (!lead) return;
+    if (!confirm(`Tem certeza que deseja excluir o lead "${lead.tradeName || lead.name}"? Esta ação não pode ser desfeita.`)) return;
+    setDeleting(true);
+    try {
+      await http.delete(`/leads/${lead.id}`);
+      toast.success("Lead excluído com sucesso!");
+      onSaved();
+      onOpenChange(false);
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || "Erro ao excluir lead");
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-2xl max-h-[90vh] flex flex-col gap-0 p-0">
@@ -399,19 +417,45 @@ export function EditLeadAdminDialog({
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <Label>MCC</Label>
-                    <Input value={mcc} onChange={(e) => setMcc(e.target.value)} />
+                    <Label>MCC (Ramo de Atividade)</Label>
+                    <Select value={mcc} onValueChange={setMcc}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione o MCC" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {MCC_ABECS.map((m) => (
+                          <SelectItem key={m.code} value={m.code}>
+                            {m.code} — {m.description}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div className="space-y-1.5">
                     <Label>Segmento</Label>
-                    <Input value={segment} onChange={(e) => setSegment(e.target.value)} />
+                    <Select value={segment} onValueChange={setSegment}>
+                      <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="fisico">Físico</SelectItem>
+                        <SelectItem value="digital">Digital</SelectItem>
+                        <SelectItem value="hibrido">Híbrido</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-3 gap-4">
                   <div className="space-y-1.5">
-                    <Label>Prazo de Pagamento</Label>
-                    <Input value={paymentTerm} onChange={(e) => setPaymentTerm(e.target.value)} />
+                    <Label>Prazo de Recebimento</Label>
+                    <Select value={paymentTerm} onValueChange={setPaymentTerm}>
+                      <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="D0">D0 (No dia)</SelectItem>
+                        <SelectItem value="D+1">D+1 (1 dia útil)</SelectItem>
+                        <SelectItem value="D+30">D+30 (30 dias)</SelectItem>
+                        <SelectItem value="Fluxo">Fluxo</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                   <div className="space-y-1.5">
                     <Label>Qtd. Equipamentos</Label>
@@ -640,14 +684,18 @@ export function EditLeadAdminDialog({
           </Tabs>
         )}
 
-        <DialogFooter className="px-6 py-4 border-t gap-2 sm:gap-0">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancelar
+        <DialogFooter className="px-6 py-4 border-t gap-2 flex-row justify-between">
+          <Button variant="destructive" onClick={handleDelete} disabled={deleting || saving || loadingFull}>
+            {deleting ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Trash2 className="h-4 w-4 mr-2" />}
+            Excluir Lead
           </Button>
-          <Button onClick={handleSave} disabled={saving || loadingFull}>
-            {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-            Salvar
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
+            <Button onClick={handleSave} disabled={saving || loadingFull}>
+              {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Salvar
+            </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>

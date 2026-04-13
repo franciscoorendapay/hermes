@@ -6,7 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { http } from '@/shared/api/http';
-import { format, parseISO, startOfDay, endOfDay, addDays, endOfWeek, isToday, isTomorrow } from 'date-fns';
+import { format, parseISO, startOfMonth, endOfMonth, startOfWeek, endOfWeek, isToday, isTomorrow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { formatMoney } from '@/lib/formatters';
 
@@ -28,12 +28,12 @@ interface AllPlanningDialogProps {
   userId?: string;
 }
 
-type PeriodTab = 'hoje' | 'amanha' | 'semana';
+type PeriodTab = 'hoje' | 'amanha' | 'semana' | 'mes';
 
 export function AllPlanningDialog({ open, onOpenChange, userId }: AllPlanningDialogProps) {
   const [agendamentos, setAgendamentos] = useState<Agendamento[]>([]);
   const [loading, setLoading] = useState(false);
-  const [periodTab, setPeriodTab] = useState<PeriodTab>('semana');
+  const [periodTab, setPeriodTab] = useState<PeriodTab>('mes');
   const [statusTab, setStatusTab] = useState('todos');
 
   useEffect(() => {
@@ -63,7 +63,15 @@ export function AllPlanningDialog({ open, onOpenChange, userId }: AllPlanningDia
         tpv: item.lead?.tpv || null,
       }));
 
-      const deduplicated = deduplicateAgendamentos(mapped);
+      // Filtrar somente o mês atual
+      const now = new Date();
+      const monthStart = startOfMonth(now).toISOString().split('T')[0];
+      const monthEnd = endOfMonth(now).toISOString().split('T')[0];
+      const currentMonth = mapped.filter((a: Agendamento) =>
+        a.data_lembrete >= monthStart && a.data_lembrete <= monthEnd
+      );
+
+      const deduplicated = deduplicateAgendamentos(currentMonth);
       setAgendamentos(deduplicated);
     } catch (error) {
       console.error('Erro ao buscar agendamentos:', error);
@@ -109,10 +117,13 @@ export function AllPlanningDialog({ open, onOpenChange, userId }: AllPlanningDia
       });
   };
 
-  // Filtrar por período
+  // Filtrar por período (agendamentos já limitados ao mês atual)
   const filteredByPeriod = useMemo(() => {
     const now = new Date();
-    const tomorrow = addDays(now, 1);
+    const weekStart = startOfWeek(now, { weekStartsOn: 1 });
+    const weekEnd = endOfWeek(now, { weekStartsOn: 1 });
+    const weekStartStr = weekStart.toISOString().split('T')[0];
+    const weekEndStr = weekEnd.toISOString().split('T')[0];
 
     return agendamentos.filter(a => {
       const date = parseISO(a.data_lembrete);
@@ -122,6 +133,8 @@ export function AllPlanningDialog({ open, onOpenChange, userId }: AllPlanningDia
         case 'amanha':
           return isTomorrow(date);
         case 'semana':
+          return a.data_lembrete >= weekStartStr && a.data_lembrete <= weekEndStr;
+        case 'mes':
         default:
           return true;
       }
@@ -142,10 +155,13 @@ export function AllPlanningDialog({ open, onOpenChange, userId }: AllPlanningDia
   // Contadores por período
   const periodCounts = useMemo(() => {
     const now = new Date();
+    const weekStartStr = startOfWeek(now, { weekStartsOn: 1 }).toISOString().split('T')[0];
+    const weekEndStr = endOfWeek(now, { weekStartsOn: 1 }).toISOString().split('T')[0];
     return {
       hoje: agendamentos.filter(a => isToday(parseISO(a.data_lembrete))).length,
       amanha: agendamentos.filter(a => isTomorrow(parseISO(a.data_lembrete))).length,
-      semana: agendamentos.length,
+      semana: agendamentos.filter(a => a.data_lembrete >= weekStartStr && a.data_lembrete <= weekEndStr).length,
+      mes: agendamentos.length,
     };
   }, [agendamentos]);
 
@@ -206,7 +222,7 @@ export function AllPlanningDialog({ open, onOpenChange, userId }: AllPlanningDia
 
         {/* Tabs de período: Hoje, Amanhã, Semana */}
         <Tabs value={periodTab} onValueChange={(v) => setPeriodTab(v as PeriodTab)} className="w-full">
-          <TabsList className="grid w-full grid-cols-3 mb-4">
+          <TabsList className="grid w-full grid-cols-4 mb-4">
             <TabsTrigger value="hoje" className="text-xs sm:text-sm">
               Hoje ({periodCounts.hoje})
             </TabsTrigger>
@@ -215,6 +231,9 @@ export function AllPlanningDialog({ open, onOpenChange, userId }: AllPlanningDia
             </TabsTrigger>
             <TabsTrigger value="semana" className="text-xs sm:text-sm">
               Semana ({periodCounts.semana})
+            </TabsTrigger>
+            <TabsTrigger value="mes" className="text-xs sm:text-sm">
+              Mês ({periodCounts.mes})
             </TabsTrigger>
           </TabsList>
 

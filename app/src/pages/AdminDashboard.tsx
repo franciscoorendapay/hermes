@@ -68,6 +68,14 @@ export default function AdminDashboard() {
       bgColor: "bg-indigo-50"
     },
     {
+      title: "Leads Duplicados",
+      description: "Identifique e remova leads repetidos entre comerciais",
+      icon: Users,
+      path: "/admin/leads/duplicates",
+      color: "text-rose-500",
+      bgColor: "bg-rose-50"
+    },
+    {
       title: "Logs do Sistema",
       description: "Monitoramento de atividades, erros e eventos",
       icon: FileText,
