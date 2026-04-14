@@ -34,7 +34,7 @@ export default function GestaoDashboard() {
     ? { start: referenceDate, end: endOfMonth(referenceDate) }
     : undefined;
 
-  const { consolidado, porUsuario, isLoading, refetch } = useGestaoStats(selectedUserId || undefined, period, customRange);
+  const { consolidado, porUsuario, usersMap, isLoading, refetch } = useGestaoStats(selectedUserId || undefined, period, customRange);
   const { role } = useUserRole();
   const canManageCommission = role === 'diretor' || role === 'admin';
 
@@ -211,7 +211,12 @@ export default function GestaoDashboard() {
       {/* Funil + Gráfico lado a lado */}
       {(isLoading || porUsuario.length > 0) && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <FunilOverviewCard data={consolidado.leads.byFunil} isLoading={isLoading} />
+          <FunilOverviewCard
+            data={consolidado.leads.byFunil}
+            leadsByFunil={consolidado.leads.leadsByFunil}
+            usersMap={usersMap}
+            isLoading={isLoading}
+          />
           <DailyCredenciamentosChart data={consolidado.credenciadosPorDia} isLoading={isLoading} />
         </div>
       )}

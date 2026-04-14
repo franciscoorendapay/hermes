@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { ArrowLeft, Wallet, TrendingUp, CreditCard, Smartphone, Banknote, QrCode } from 'lucide-react';
+import { ArrowLeft, Wallet, TrendingUp, CreditCard, Smartphone, Banknote, QrCode, MapPin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -9,13 +9,14 @@ import { http } from '@/shared/api/http';
 import { formatMoney } from '@/lib/formatters';
 import { startOfMonth, endOfMonth, format } from 'date-fns';
 import { Input } from '@/components/ui/input';
-import { Search, Info } from 'lucide-react';
+import { Search } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useNavigate } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
 import { ColumnDef } from '@tanstack/react-table';
 import { DataTable, SortableHeader } from '@/components/ui/data-table';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { BR_STATES } from '@/lib/brazil';
 
 interface TransacionadoItem {
   token: string;
@@ -34,6 +35,8 @@ interface LeadTransacionadoRow {
   leadId: string;
   leadName: string;
   comercialName: string;
+  cidade: string | null;
+  estado: string | null;
   total: number;
   pix: number;
   cartao: number;
@@ -55,6 +58,8 @@ export default function GestaoTransacionado() {
   const [startDate, setStartDate] = useState(format(startOfMonth(new Date()), 'yyyy-MM-dd'));
   const [endDate, setEndDate] = useState(format(endOfMonth(new Date()), 'yyyy-MM-dd'));
   const [searchTerm, setSearchTerm] = useState('');
+  const [filterEstado, setFilterEstado] = useState('');
+  const [filterCidade, setFilterCidade] = useState('');
   const [rows, setRows] = useState<LeadTransacionadoRow[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -102,6 +107,8 @@ export default function GestaoTransacionado() {
                      leadId: l.id,
                      leadName: l.tradeName || l.companyName || l.name || 'Sem Nome',
                      comercialName: l.user?.name || 'N/A',
+                     cidade: l.city || null,
+                     estado: l.state || null,
                      total,
                      pix: Number(trans.pix) || 0,
                      cartao: Number(trans.cartao) || 0,
@@ -124,10 +131,34 @@ export default function GestaoTransacionado() {
     fetchData();
   }, [subordinates, subsLoading, user, startDate, endDate, mes, ano, reportMode]);
 
-  const filteredRows = rows.filter(r =>
-    r.leadName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    r.comercialName.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Reset city filter when state changes
+  useEffect(() => {
+    setFilterCidade('');
+  }, [filterEstado]);
+
+  // Unique states from loaded data
+  const availableEstados = Array.from(
+    new Set(rows.map(r => r.estado).filter(Boolean) as string[])
+  ).sort();
+
+  // Unique cities filtered by selected state
+  const availableCidades = Array.from(
+    new Set(
+      rows
+        .filter(r => !filterEstado || r.estado === filterEstado)
+        .map(r => r.cidade)
+        .filter(Boolean) as string[]
+    )
+  ).sort();
+
+  const filteredRows = rows.filter(r => {
+    const matchSearch =
+      r.leadName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      r.comercialName.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchEstado = !filterEstado || r.estado === filterEstado;
+    const matchCidade = !filterCidade || r.cidade === filterCidade;
+    return matchSearch && matchEstado && matchCidade;
+  });
 
   const stats = {
       total: filteredRows.reduce((acc, r) => acc + r.total, 0),
@@ -163,9 +194,15 @@ export default function GestaoTransacionado() {
       header: ({ column }) => <SortableHeader column={column}>Cliente / Comercial</SortableHeader>,
       size: 300,
       cell: ({ row }) => (
-        <div className="flex flex-col">
+        <div className="flex flex-col gap-0.5">
           <span className="font-bold text-foreground line-clamp-1">{row.original.leadName}</span>
           <span className="text-[10px] text-muted-foreground uppercase font-semibold">{row.original.comercialName}</span>
+          {(row.original.cidade || row.original.estado) && (
+            <span className="flex items-center gap-0.5 text-[10px] text-muted-foreground/70">
+              <MapPin className="h-2.5 w-2.5 shrink-0" />
+              {[row.original.cidade, row.original.estado].filter(Boolean).join(' – ')}
+            </span>
+          )}
         </div>
       ),
     },
@@ -352,24 +389,86 @@ export default function GestaoTransacionado() {
       {/* Main Table */}
       <Card>
         <CardHeader className="pb-3 border-b border-border/50">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <TrendingUp className="h-5 w-5 text-primary" />
-                Performance Financeira por Lead
-              </CardTitle>
-              <CardDescription>
-                Exibindo leads com movimentação ativa no período
-              </CardDescription>
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <TrendingUp className="h-5 w-5 text-primary" />
+                  Performance Financeira por Lead
+                </CardTitle>
+                <CardDescription>
+                  Exibindo leads com movimentação ativa no período
+                </CardDescription>
+              </div>
+              <div className="relative w-full sm:w-72">
+                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar por cliente ou comercial..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-9 h-10"
+                />
+              </div>
             </div>
-            <div className="relative w-full sm:w-72">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Buscar por cliente ou comercial..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-9 h-10"
-              />
+
+            {/* Location filters */}
+            <div className="flex flex-col sm:flex-row items-end gap-3 pt-1 border-t border-border/40">
+              <div className="space-y-1 w-full sm:w-56">
+                <label className="text-[10px] font-bold uppercase text-muted-foreground ml-1 flex items-center gap-1">
+                  <MapPin className="h-3 w-3" /> Estado
+                </label>
+                <Select
+                  value={filterEstado || '__all__'}
+                  onValueChange={(v) => setFilterEstado(v === '__all__' ? '' : v)}
+                >
+                  <SelectTrigger className="h-9">
+                    <SelectValue placeholder="Todos os estados" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__all__">Todos os estados</SelectItem>
+                    {availableEstados.map(uf => {
+                      const stateInfo = BR_STATES.find(s => s.uf === uf);
+                      return (
+                        <SelectItem key={uf} value={uf}>
+                          {uf}{stateInfo ? ` – ${stateInfo.nome}` : ''}
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1 w-full sm:w-56">
+                <label className="text-[10px] font-bold uppercase text-muted-foreground ml-1 flex items-center gap-1">
+                  <MapPin className="h-3 w-3" /> Cidade
+                </label>
+                <Select
+                  value={filterCidade || '__all__'}
+                  onValueChange={(v) => setFilterCidade(v === '__all__' ? '' : v)}
+                  disabled={availableCidades.length === 0}
+                >
+                  <SelectTrigger className="h-9">
+                    <SelectValue placeholder="Todas as cidades" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__all__">Todas as cidades</SelectItem>
+                    {availableCidades.map(cidade => (
+                      <SelectItem key={cidade} value={cidade}>{cidade}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {(filterEstado || filterCidade) && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-9 text-muted-foreground hover:text-foreground shrink-0"
+                  onClick={() => { setFilterEstado(''); setFilterCidade(''); }}
+                >
+                  Limpar filtros
+                </Button>
+              )}
             </div>
           </div>
         </CardHeader>

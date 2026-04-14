@@ -14,7 +14,8 @@ import {
   FileBarChart,
   Coins,
   Clock,
-  TrendingUp
+  TrendingUp,
+  BookUser
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
@@ -30,6 +31,7 @@ const navItems = [
   { to: '/gestao/transacionado', icon: TrendingUp, label: 'Transacionado', roles: ['diretor', 'nacional', 'regional'] as const },
   { to: '/gestao/hierarquia', icon: Network, label: 'Hierarquia', roles: ['diretor', 'nacional'] as const },
   { to: '/gestao/sla', icon: Clock, label: 'SLA Logística', roles: ['diretor', 'logistica'] as const },
+  { to: '/gestao/leads', icon: BookUser, label: 'Gestão de Leads', roles: ['nacional'] as const },
 ];
 
 interface GestaoSidebarProps {

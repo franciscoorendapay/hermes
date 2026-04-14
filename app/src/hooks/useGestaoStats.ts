@@ -10,6 +10,7 @@ export type Period = 'today' | 'week' | 'month';
 interface LeadStats {
   total: number;
   byFunil: Record<number, number>;
+  leadsByFunil: Record<number, any[]>;
   credenciados: number; // No período
   credenciadosTotal: number; // Geral histórico
   tpvTotal: number; // No período (Prometido/Progress)
@@ -65,6 +66,7 @@ interface GestaoStats {
     credenciadosPorDia: any[];
   };
   porUsuario: UserStats[];
+  usersMap: Record<string, string>;
   isLoading: boolean;
 }
 
@@ -93,13 +95,14 @@ export function useGestaoStats(
 
   const initialStats: Omit<GestaoStats, 'isLoading'> = {
     consolidado: {
-      leads: { total: 0, byFunil: {}, credenciados: 0, credenciadosTotal: 0, tpvTotal: 0, tpvGeral: 0 },
+      leads: { total: 0, byFunil: {}, leadsByFunil: {}, credenciados: 0, credenciadosTotal: 0, tpvTotal: 0, tpvGeral: 0 },
       visitas: { total: 0, byTipo: {}, byStatus: {} },
       metas: { metaClientes: 0, metaValor: 0, metaVisitas: 0, realizadoClientes: 0, realizadoValor: 0, realizadoVisitas: 0 },
       planejamento: emptyPlanning,
       credenciadosPorDia: [],
     },
     porUsuario: [],
+    usersMap: {},
   };
 
   const { data, isLoading, refetch } = useQuery({
@@ -212,6 +215,7 @@ export function useGestaoStats(
       const consolidadoLeads: LeadStats = {
         total: allLeads.length,
         byFunil: {},
+        leadsByFunil: {},
         credenciados: leadsAccreditedPeriod.length,
         credenciadosTotal: leadsAccreditedTotal.length,
         tpvTotal: leadsAccreditedPeriod.reduce((acc: number, l: any) => acc + safeParseNumber(l.tpv), 0),
@@ -223,6 +227,8 @@ export function useGestaoStats(
         const dateStr = funil === 5 ? (l.data_credenciamento || l.data_registro) : l.data_registro;
         if (filterByDate(dateStr)) {
           consolidadoLeads.byFunil[funil] = (consolidadoLeads.byFunil[funil] || 0) + 1;
+          if (!consolidadoLeads.leadsByFunil[funil]) consolidadoLeads.leadsByFunil[funil] = [];
+          consolidadoLeads.leadsByFunil[funil].push(l);
         }
       });
 
@@ -376,6 +382,7 @@ export function useGestaoStats(
           credenciadosPorDia,
         },
         porUsuario: porUsuario.sort((a, b) => b.leads.tpvTotal - a.leads.tpvTotal),
+        usersMap: Object.fromEntries(profilesMap),
       };
     },
     enabled: !!effectiveUser && (isManager || isAdmin),
