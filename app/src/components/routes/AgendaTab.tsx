@@ -126,9 +126,13 @@ export function AgendaTab({
 }: AgendaTabProps = {}) {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [internalAddVisitOpen, setInternalAddVisitOpen] = useState(false);
-  
+  const [dialogKey, setDialogKey] = useState(0);
+
   const addVisitOpen = externalAddVisitOpen !== undefined ? externalAddVisitOpen : internalAddVisitOpen;
-  const setAddVisitOpen = externalSetAddVisitOpen || setInternalAddVisitOpen;
+  const setAddVisitOpen = (open: boolean) => {
+    if (open) setDialogKey(k => k + 1);
+    (externalSetAddVisitOpen || setInternalAddVisitOpen)(open);
+  };
 
   const [prospeccaoSheetOpen, setProspeccaoSheetOpen] = useState(false);
   const [prospeccaoData, setProspeccaoData] = useState<{
@@ -593,6 +597,7 @@ export function AgendaTab({
 
       {/* Add Visit Dialog */}
       <AddVisitDialog
+        key={dialogKey}
         open={addVisitOpen}
         onOpenChange={setAddVisitOpen}
         leads={leads}

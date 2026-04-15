@@ -112,7 +112,7 @@ export function IndividualDashboard({ user, onBack, period, onPeriodChange }: In
           data={user.planejamento} 
           onViewAll={() => setShowAllPlanning(true)} 
         />
-        <FunilOverviewCard data={user.leads.byFunil} />
+        <FunilOverviewCard data={user.leads.byFunil} leadsByFunil={user.leads.leadsByFunil} />
       </div>
 
       {/* Dialog com todos os agendamentos */}
@@ -120,6 +120,7 @@ export function IndividualDashboard({ user, onBack, period, onPeriodChange }: In
         open={showAllPlanning}
         onOpenChange={setShowAllPlanning}
         userId={user.userId}
+        period={period}
       />
 
       {/* Progresso das Metas */}

@@ -182,7 +182,7 @@ export function useGestaoStats(
 
       // Filter reminders by date
       const lembretesPeriodo = lembretes?.filter((l: any) => {
-        if (l.tipo !== 'agendamento') return false;
+        if (l.tipo && l.tipo !== 'agendamento') return false;
         const d = new Date(l.data_lembrete);
         const dStr = d.toISOString().split('T')[0];
         const periodStartStr = periodStart.toISOString().split('T')[0];
@@ -310,6 +310,7 @@ export function useGestaoStats(
         const userLeadStats: LeadStats = {
           total: userLeads.length,
           byFunil: {},
+          leadsByFunil: {},
           credenciados: userLeadsAccreditedPeriod.length,
           credenciadosTotal: userLeadsAccreditedTotal.length,
           tpvTotal: userLeadsAccreditedPeriod.reduce((acc: number, l: any) => acc + safeParseNumber(l.tpv), 0),
@@ -321,6 +322,8 @@ export function useGestaoStats(
           const dateStr = funil === 5 ? (l.data_credenciamento || l.data_registro) : l.data_registro;
           if (filterByDate(dateStr)) {
             userLeadStats.byFunil[funil] = (userLeadStats.byFunil[funil] || 0) + 1;
+            if (!userLeadStats.leadsByFunil[funil]) userLeadStats.leadsByFunil[funil] = [];
+            userLeadStats.leadsByFunil[funil].push(l);
           }
         });
 

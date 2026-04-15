@@ -9,6 +9,7 @@ import { http } from '@/shared/api/http';
 import { format, parseISO, startOfMonth, endOfMonth, startOfWeek, endOfWeek, isToday, isTomorrow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { formatMoney } from '@/lib/formatters';
+import type { Period } from '@/components/gestao/PeriodFilter';
 
 interface Agendamento {
   id: string;
@@ -26,11 +27,12 @@ interface AllPlanningDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   userId?: string;
+  period?: Period;
 }
 
 type PeriodTab = 'hoje' | 'amanha' | 'semana' | 'mes';
 
-export function AllPlanningDialog({ open, onOpenChange, userId }: AllPlanningDialogProps) {
+export function AllPlanningDialog({ open, onOpenChange, userId, period = 'month' }: AllPlanningDialogProps) {
   const [agendamentos, setAgendamentos] = useState<Agendamento[]>([]);
   const [loading, setLoading] = useState(false);
   const [periodTab, setPeriodTab] = useState<PeriodTab>('mes');
@@ -40,7 +42,7 @@ export function AllPlanningDialog({ open, onOpenChange, userId }: AllPlanningDia
     if (open && userId) {
       fetchAgendamentos();
     }
-  }, [open, userId]);
+  }, [open, userId, period]);
 
   const fetchAgendamentos = async () => {
     if (!userId) return;
@@ -63,12 +65,18 @@ export function AllPlanningDialog({ open, onOpenChange, userId }: AllPlanningDia
         tpv: item.lead?.tpv || null,
       }));
 
-      // Filtrar somente o mês atual
+      // Filtrar pelo período selecionado
       const now = new Date();
-      const monthStart = startOfMonth(now).toISOString().split('T')[0];
-      const monthEnd = endOfMonth(now).toISOString().split('T')[0];
+      const rangeStart = period === 'week'
+        ? startOfWeek(now, { weekStartsOn: 1 })
+        : startOfMonth(now);
+      const rangeEnd = period === 'week'
+        ? endOfWeek(now, { weekStartsOn: 1 })
+        : endOfMonth(now);
+      const rangeStartStr = rangeStart.toISOString().split('T')[0];
+      const rangeEndStr = rangeEnd.toISOString().split('T')[0];
       const currentMonth = mapped.filter((a: Agendamento) =>
-        a.data_lembrete >= monthStart && a.data_lembrete <= monthEnd
+        a.data_lembrete >= rangeStartStr && a.data_lembrete <= rangeEndStr
       );
 
       const deduplicated = deduplicateAgendamentos(currentMonth);
