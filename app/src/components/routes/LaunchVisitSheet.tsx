@@ -314,6 +314,7 @@ export function LaunchVisitSheet({
 
   // Return Visit Form State
   const [leadId, setLeadId] = useState<string>(selectedLead?.id || "");
+  const [leadSearch, setLeadSearch] = useState("");
   const [novaFase, setNovaFase] = useState<string>("");
   const [returnSelectedLead, setReturnSelectedLead] = useState<Lead | null>(null);
   const [tipoVisitaCliente, setTipoVisitaCliente] = useState<string>("");
@@ -2852,24 +2853,58 @@ export function LaunchVisitSheet({
         {/* Lead Selection */}
         <div className="space-y-2">
           <Label htmlFor="lead">Selecionar Lead/Cliente *</Label>
-          <Select value={leadId} onValueChange={handleLeadSelectChange}>
+          <Select
+            value={leadId}
+            onValueChange={handleLeadSelectChange}
+            onOpenChange={(open) => { if (!open) setLeadSearch(""); }}
+          >
             <SelectTrigger id="lead">
               <SelectValue placeholder="Buscar por nome" />
             </SelectTrigger>
             <SelectContent>
-              {leads.map((lead) => (
-                <SelectItem
-                  key={lead.id}
-                  value={lead.id}
-                >
-                  <div className="flex items-center gap-2">
-                    <span>{lead.nome_fantasia}</span>
-                    {(lead.funil_app ?? 0) >= 5 && (
-                      <span className="text-xs px-1.5 py-0.5 bg-green-100 text-green-700 rounded">Cliente</span>
-                    )}
-                  </div>
-                </SelectItem>
-              ))}
+              <div className="px-2 pb-2 pt-1">
+                <Input
+                  placeholder="Buscar..."
+                  value={leadSearch}
+                  onChange={(e) => setLeadSearch(e.target.value)}
+                  onKeyDown={(e) => e.stopPropagation()}
+                  className="h-8 text-sm"
+                  autoFocus
+                />
+              </div>
+              {leads
+                .filter((lead) => {
+                  const term = leadSearch.toLowerCase();
+                  return (
+                    lead.nome_fantasia?.toLowerCase().includes(term) ||
+                    lead.razao_social?.toLowerCase().includes(term)
+                  );
+                })
+                .map((lead) => {
+                  const displayName = lead.razao_social || lead.nome_fantasia;
+                  return (
+                    <SelectItem
+                      key={lead.id}
+                      value={lead.id}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span>{displayName}</span>
+                        {(lead.funil_app ?? 0) >= 5 && (
+                          <span className="text-xs px-1.5 py-0.5 bg-green-100 text-green-700 rounded">Cliente</span>
+                        )}
+                      </div>
+                    </SelectItem>
+                  );
+                })}
+              {leads.filter((lead) => {
+                const term = leadSearch.toLowerCase();
+                return (
+                  lead.nome_fantasia?.toLowerCase().includes(term) ||
+                  lead.razao_social?.toLowerCase().includes(term)
+                );
+              }).length === 0 && (
+                <p className="px-3 py-2 text-sm text-muted-foreground">Nenhum resultado encontrado.</p>
+              )}
             </SelectContent>
           </Select>
         </div>

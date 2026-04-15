@@ -24,7 +24,7 @@ class Lead
     private ?User $user = null;
 
     #[ORM\Column(length: 255, nullable: false)]
-    #[Groups(['lead:read', 'lead:write', 'accreditation:read'])]
+    #[Groups(['lead:read', 'lead:write', 'accreditation:read', 'visit:read'])]
     #[Assert\NotNull(message: 'Name cannot be null')]
     private ?string $name = null;
 
@@ -33,11 +33,11 @@ class Lead
     private ?int $leadCode = null;
 
     #[ORM\Column(length: 255, nullable: true)]
-    #[Groups(['lead:read', 'lead:write', 'accreditation:read'])]
+    #[Groups(['lead:read', 'lead:write', 'accreditation:read', 'visit:read'])]
     private ?string $tradeName = null;
 
     #[ORM\Column(length: 255, nullable: true)]
-    #[Groups(['lead:read', 'lead:write', 'accreditation:read'])]
+    #[Groups(['lead:read', 'lead:write', 'accreditation:read', 'visit:read'])]
     private ?string $companyName = null;
 
     #[ORM\Column(length: 50, nullable: true)]

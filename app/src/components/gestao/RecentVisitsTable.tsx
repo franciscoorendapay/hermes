@@ -29,7 +29,7 @@ export function RecentVisitsTable({ userId }: RecentVisitsTableProps) {
     async function fetchVisits() {
       setIsLoading(true);
       try {
-        const response = await http.get(`/api/visits?user_ids=${userId}`);
+        const response = await http.get(`/visits?user_ids=${userId}`);
         const visitasData = response.data || [];
 
         if (visitasData.length === 0) {
@@ -42,7 +42,7 @@ export function RecentVisitsTable({ userId }: RecentVisitsTableProps) {
           data_visita: v.data_visita || v.dataVisita,
           tipo: v.tipo,
           status: v.status,
-          lead_nome: v.lead?.nome_fantasia || v.lead?.tradeName || 'Lead não encontrado',
+          lead_nome: v.lead?.companyName || v.lead?.tradeName || v.lead?.name || 'Lead não identificado',
         }));
 
         setVisits(visitasFormatadas);
