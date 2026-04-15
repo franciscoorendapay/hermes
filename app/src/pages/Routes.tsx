@@ -14,6 +14,30 @@ import { useRoutes } from "@/hooks/useRoutes";
 import { toast } from "sonner";
 import { isToday, parseISO } from "date-fns";
 
+function buildReminderAddress(
+  reminder: { estabelecimento_endereco: string | null; estabelecimento_numero: string | null; estabelecimento_bairro: string | null; estabelecimento_cidade: string | null; lead_id?: string | null },
+  leads: { id: string | number; endereco_logradouro: string | null; endereco_numero: string | null; endereco_bairro: string | null }[]
+): string {
+  if (reminder.estabelecimento_endereco) {
+    return [
+      reminder.estabelecimento_endereco,
+      reminder.estabelecimento_numero,
+      reminder.estabelecimento_bairro,
+      reminder.estabelecimento_cidade,
+    ]
+      .filter(Boolean)
+      .join(", ");
+  }
+  if (reminder.lead_id) {
+    const lead = leads.find((l) => String(l.id) === String(reminder.lead_id));
+    if (lead) {
+      const parts = [lead.endereco_logradouro, lead.endereco_numero, lead.endereco_bairro].filter(Boolean);
+      if (parts.length > 0) return parts.join(", ");
+    }
+  }
+  return "Endereço não informado";
+}
+
 export default function Routes() {
   const [activeTab, setActiveTab] = useState("mapa");
   const [addVisitOpen, setAddVisitOpen] = useState(false);
@@ -50,17 +74,7 @@ export default function Routes() {
       const savedStops: RouteStop[] = currentRoute.items.map((item) => {
         const reminder = item.reminder;
 
-        // Build address
-        const address = reminder.estabelecimento_endereco
-          ? [
-            reminder.estabelecimento_endereco,
-            reminder.estabelecimento_numero,
-            reminder.estabelecimento_bairro,
-            reminder.estabelecimento_cidade,
-          ]
-            .filter(Boolean)
-            .join(", ")
-          : "Endereço não informado";
+        const address = buildReminderAddress(reminder, leads);
 
         return {
           id: Date.now() + item.sequence, // or just item.id
@@ -111,16 +125,7 @@ export default function Routes() {
 
           if (newAddedReminders.length > 0) {
             const addedStops: RouteStop[] = newAddedReminders.map((reminder, index) => {
-              const address = reminder.estabelecimento_endereco
-                ? [
-                  reminder.estabelecimento_endereco,
-                  reminder.estabelecimento_numero,
-                  reminder.estabelecimento_bairro,
-                  reminder.estabelecimento_cidade,
-                ]
-                  .filter(Boolean)
-                  .join(", ")
-                : "Endereço não informado";
+              const address = buildReminderAddress(reminder, leads);
 
               return {
                 id: Date.now() + index + Math.random(),
@@ -147,7 +152,7 @@ export default function Routes() {
     }
     
     prevRemindersRef.current = current;
-  }, [todayReminders]);
+  }, [todayReminders, leads]);
 
   // Effect to handle navigation state
   useEffect(() => {

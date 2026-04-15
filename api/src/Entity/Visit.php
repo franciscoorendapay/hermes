@@ -209,4 +209,15 @@ class Visit
 
         return $this;
     }
+
+    #[Groups(['visit:read'])]
+    public function getLeadNome(): ?string
+    {
+        if (!$this->lead) {
+            return null;
+        }
+        return $this->lead->getCompanyName()
+            ?? $this->lead->getTradeName()
+            ?? $this->lead->getName();
+    }
 }

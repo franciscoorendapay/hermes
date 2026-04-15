@@ -42,7 +42,7 @@ export function RecentVisitsTable({ userId }: RecentVisitsTableProps) {
           data_visita: v.data_visita || v.dataVisita,
           tipo: v.tipo,
           status: v.status,
-          lead_nome: v.lead?.companyName || v.lead?.tradeName || v.lead?.name || 'Lead não identificado',
+          lead_nome: v.leadNome || v.lead_nome || v.lead?.companyName || v.lead?.company_name || v.lead?.tradeName || v.lead?.trade_name || v.lead?.name || 'Lead não identificado',
         }));
 
         setVisits(visitasFormatadas);
