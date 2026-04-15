@@ -72,10 +72,9 @@ export default function GestaoTransacionado() {
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        const activeSubordinates = subordinates.filter(s => s.includeInStats !== false);
         const allUsers = user
-          ? [{ id: user.id, nome: user.name }, ...activeSubordinates]
-          : activeSubordinates;
+          ? [{ id: user.id, nome: user.name }, ...subordinates]
+          : subordinates;
         const userIds = allUsers.map(s => s.id);
         const idsParam = userIds.join(',');
 
@@ -102,7 +101,7 @@ export default function GestaoTransacionado() {
         leads.forEach((l: any) => {
              const trans = transMap[l.id];
              const total = Number(trans?.transacionado) || 0;
-             if (trans && total > 0) {
+             if (trans) {
                  processedRows.push({
                      leadId: l.id,
                      leadName: l.tradeName || l.companyName || l.name || 'Sem Nome',
