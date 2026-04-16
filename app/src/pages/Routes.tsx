@@ -15,8 +15,13 @@ import { toast } from "sonner";
 import { isToday, parseISO } from "date-fns";
 
 function buildReminderAddress(
-  reminder: { estabelecimento_endereco: string | null; estabelecimento_numero: string | null; estabelecimento_bairro: string | null; estabelecimento_cidade: string | null; lead_id?: string | null },
-  leads: { id: string | number; endereco_logradouro: string | null; endereco_numero: string | null; endereco_bairro: string | null }[]
+  reminder: {
+    estabelecimento_endereco: string | null;
+    estabelecimento_numero: string | null;
+    estabelecimento_bairro: string | null;
+    estabelecimento_cidade: string | null;
+    lead?: { street: string | null; number: string | null; neighborhood: string | null; city: string | null } | null;
+  }
 ): string {
   if (reminder.estabelecimento_endereco) {
     return [
@@ -28,12 +33,9 @@ function buildReminderAddress(
       .filter(Boolean)
       .join(", ");
   }
-  if (reminder.lead_id) {
-    const lead = leads.find((l) => String(l.id) === String(reminder.lead_id));
-    if (lead) {
-      const parts = [lead.endereco_logradouro, lead.endereco_numero, lead.endereco_bairro].filter(Boolean);
-      if (parts.length > 0) return parts.join(", ");
-    }
+  if (reminder.lead) {
+    const parts = [reminder.lead.street, reminder.lead.number, reminder.lead.neighborhood].filter(Boolean);
+    if (parts.length > 0) return parts.join(", ");
   }
   return "Endereço não informado";
 }
@@ -74,7 +76,7 @@ export default function Routes() {
       const savedStops: RouteStop[] = currentRoute.items.map((item) => {
         const reminder = item.reminder;
 
-        const address = buildReminderAddress(reminder, leads);
+        const address = buildReminderAddress(reminder);
 
         return {
           id: Date.now() + item.sequence, // or just item.id
@@ -125,7 +127,7 @@ export default function Routes() {
 
           if (newAddedReminders.length > 0) {
             const addedStops: RouteStop[] = newAddedReminders.map((reminder, index) => {
-              const address = buildReminderAddress(reminder, leads);
+              const address = buildReminderAddress(reminder);
 
               return {
                 id: Date.now() + index + Math.random(),
@@ -152,7 +154,7 @@ export default function Routes() {
     }
     
     prevRemindersRef.current = current;
-  }, [todayReminders, leads]);
+  }, [todayReminders]);
 
   // Effect to handle navigation state
   useEffect(() => {

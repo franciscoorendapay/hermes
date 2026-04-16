@@ -32,11 +32,13 @@ class LogisticaController extends AbstractController
             'leads'       => $lead ? [
                 'id'                 => $lead->getId(),
                 'nome_fantasia'      => $lead->getTradeName() ?? $lead->getName(),
+                'telefone'           => $lead->getPhone(),
                 'endereco_logradouro'=> $lead->getStreet(),
                 'endereco_numero'    => $lead->getNumber(),
                 'endereco_bairro'    => $lead->getNeighborhood(),
                 'endereco_cidade'    => $lead->getCity(),
                 'endereco_estado'    => $lead->getState(),
+                'endereco_cep'       => $lead->getZipCode(),
                 'lat'                => $lead->getLat() ? (float) $lead->getLat() : null,
                 'lng'                => $lead->getLng() ? (float) $lead->getLng() : null,
             ] : null,
