@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
+import { logisticaService, OrdemLogistica } from "@/features/logistica/logistica.service";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
@@ -34,104 +34,51 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Package, Truck, MapPin, Phone, CheckCircle, Clock, XCircle } from "lucide-react";
-
-interface OrdemServico {
-  id: string;
-  lead_id: string;
-  user_id: string;
-  tipo: string;
-  quantidade: number;
-  status: string;
-  observacao: string | null;
-  atendido_por: string | null;
-  data_atendimento: string | null;
-  created_at: string;
-  leads?: {
-    nome_fantasia: string;
-    telefone: string | null;
-    endereco_logradouro: string | null;
-    endereco_numero: string | null;
-    endereco_bairro: string | null;
-    endereco_cidade: string | null;
-    endereco_estado: string | null;
-    endereco_cep: string | null;
-  };
-  profiles?: {
-    nome: string;
-  };
-}
+import { Package, Truck, MapPin, Phone, CheckCircle, Clock, XCircle, RefreshCw, PackageMinus } from "lucide-react";
 
 const statusOptions = [
-  { value: "pendente", label: "Pendente", color: "bg-yellow-100 text-yellow-800 border-yellow-300" },
+  { value: "pendente",     label: "Pendente",     color: "bg-yellow-100 text-yellow-800 border-yellow-300" },
   { value: "em_andamento", label: "Em Andamento", color: "bg-blue-100 text-blue-800 border-blue-300" },
-  { value: "concluida", label: "Concluída", color: "bg-green-100 text-green-800 border-green-300" },
-  { value: "cancelada", label: "Cancelada", color: "bg-red-100 text-red-800 border-red-300" },
+  { value: "concluido",    label: "Concluído",    color: "bg-green-100 text-green-800 border-green-300" },
+  { value: "cancelado",    label: "Cancelado",    color: "bg-red-100 text-red-800 border-red-300" },
 ];
+
+const tipoConfig: Record<string, { label: string; icon: React.ElementType; color: string }> = {
+  bobinas:              { label: "Bobinas",              icon: Package,      color: "text-blue-600" },
+  entrega_equipamento:  { label: "Entrega de Equip.",    icon: Truck,        color: "text-green-600" },
+  troca_equipamento:    { label: "Troca de Máquina",     icon: RefreshCw,    color: "text-amber-600" },
+  retirada_equipamento: { label: "Retirada de Equip.",   icon: PackageMinus, color: "text-red-600" },
+};
 
 export default function Logistica() {
   const navigate = useNavigate();
-  const { user, isLoading: authLoading } = useAuth();
-  const { role, isLogistica, isLoading: roleLoading } = useUserRole();
-  const [ordens, setOrdens] = useState<OrdemServico[]>([]);
+  const { isLoading: authLoading } = useAuth();
+  const { isLogistica, isAdmin, isLoading: roleLoading } = useUserRole();
+  const [ordens, setOrdens] = useState<OrdemLogistica[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState<string>("all");
-  const [selectedOrdem, setSelectedOrdem] = useState<OrdemServico | null>(null);
+  const [selectedOrdem, setSelectedOrdem] = useState<OrdemLogistica | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState(false);
 
   useEffect(() => {
-    if (!authLoading && !roleLoading && !isLogistica) {
+    if (!authLoading && !roleLoading && !isLogistica && !isAdmin) {
       navigate("/dashboard", { replace: true });
       toast.error("Acesso restrito ao setor de logística");
     }
-  }, [authLoading, roleLoading, isLogistica, navigate]);
+  }, [authLoading, roleLoading, isLogistica, isAdmin, navigate]);
 
   useEffect(() => {
-    if (isLogistica) {
+    if (isLogistica || isAdmin) {
       fetchOrdens();
     }
-  }, [isLogistica]);
+  }, [isLogistica, isAdmin]);
 
   const fetchOrdens = async () => {
     setLoading(true);
     try {
-      // First fetch orders
-      const { data: ordensData, error } = await supabase
-        .from("ordens_servico")
-        .select(`
-          *,
-          leads (
-            nome_fantasia,
-            telefone,
-            endereco_logradouro,
-            endereco_numero,
-            endereco_bairro,
-            endereco_cidade,
-            endereco_estado,
-            endereco_cep
-          )
-        `)
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-
-      // Fetch profiles for each unique user_id
-      const userIds = [...new Set((ordensData || []).map(o => o.user_id))];
-      const { data: profilesData } = await supabase
-        .from("profiles")
-        .select("id, nome")
-        .in("id", userIds);
-
-      const profilesMap = new Map((profilesData || []).map(p => [p.id, p]));
-
-      // Merge profiles into orders
-      const ordensWithProfiles = (ordensData || []).map(ordem => ({
-        ...ordem,
-        profiles: profilesMap.get(ordem.user_id) || null
-      }));
-
-      setOrdens(ordensWithProfiles as OrdemServico[]);
+      const data = await logisticaService.listarOrdens();
+      setOrdens(data);
     } catch (err) {
       console.error("Erro ao carregar ordens:", err);
       toast.error("Erro ao carregar ordens de serviço");
@@ -143,24 +90,10 @@ export default function Logistica() {
   const handleStatusChange = async (ordemId: string, newStatus: string) => {
     setUpdatingStatus(true);
     try {
-      const updateData: Record<string, unknown> = {
-        status: newStatus
-      };
-
-      if (newStatus === "concluida" && user) {
-        updateData.atendido_por = user.id;
-        updateData.data_atendimento = new Date().toISOString();
-      }
-
-      const { error } = await supabase
-        .from("ordens_servico")
-        .update(updateData)
-        .eq("id", ordemId);
-
-      if (error) throw error;
-
+      await logisticaService.atualizarStatus(ordemId, newStatus);
       toast.success("Status atualizado com sucesso!");
-      fetchOrdens();
+      setSelectedOrdem(prev => prev ? { ...prev, status: newStatus } : null);
+      setOrdens(prev => prev.map(o => o.id === ordemId ? { ...o, status: newStatus } : o));
       setDetailsOpen(false);
     } catch (err) {
       console.error("Erro ao atualizar status:", err);
@@ -175,58 +108,50 @@ export default function Logistica() {
     : ordens.filter(o => o.status === filterStatus);
 
   const getStatusBadge = (status: string) => {
-    const statusConfig = statusOptions.find(s => s.value === status);
+    const s = statusOptions.find(x => x.value === status);
     return (
-      <Badge variant="outline" className={statusConfig?.color || ""}>
-        {statusConfig?.label || status}
+      <Badge variant="outline" className={s?.color || ""}>
+        {s?.label || status}
       </Badge>
     );
   };
 
-  const openDetails = (ordem: OrdemServico) => {
-    setSelectedOrdem(ordem);
-    setDetailsOpen(true);
-  };
-
-  const formatEndereco = (leads: OrdemServico["leads"]) => {
+  const formatEndereco = (leads: OrdemLogistica["leads"]) => {
     if (!leads) return "-";
-    const parts = [
+    return [
       leads.endereco_logradouro,
       leads.endereco_numero,
       leads.endereco_bairro,
       leads.endereco_cidade,
       leads.endereco_estado,
-    ].filter(Boolean);
-    return parts.length > 0 ? parts.join(", ") : "-";
+    ].filter(Boolean).join(", ") || "-";
   };
 
-  // Stats
-  const pendentes = ordens.filter(o => o.status === "pendente").length;
-  const emAndamento = ordens.filter(o => o.status === "em_andamento").length;
-  const concluidas = ordens.filter(o => o.status === "concluida").length;
+  // Stats gerais
+  const pendentes    = ordens.filter(o => o.status === "pendente").length;
+  const emAndamento  = ordens.filter(o => o.status === "em_andamento").length;
+  const concluidos   = ordens.filter(o => o.status === "concluido").length;
+
+  // Stats por tipo
+  const tipoStats = (tipo: string) => ({
+    pendente:  ordens.filter(o => o.tipo === tipo && o.status === "pendente").length,
+    concluido: ordens.filter(o => o.tipo === tipo && o.status === "concluido").length,
+    total:     ordens.filter(o => o.tipo === tipo).length,
+  });
 
   if (authLoading || roleLoading) {
     return (
       <div className="space-y-6">
-        <div className="space-y-2">
-          <Skeleton className="h-8 w-64" />
-          <Skeleton className="h-4 w-48" />
-        </div>
+        <Skeleton className="h-8 w-64" />
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {[1, 2, 3].map((i) => (
-            <Skeleton key={i} className="h-28 rounded-xl" />
-          ))}
-        </div>
-        <div className="flex gap-4">
-          <Skeleton className="h-10 w-48" />
-          <Skeleton className="h-10 w-24" />
+          {[1, 2, 3].map(i => <Skeleton key={i} className="h-28 rounded-xl" />)}
         </div>
         <Skeleton className="h-[400px] rounded-xl" />
       </div>
     );
   }
 
-  if (!isLogistica) return null;
+  if (!isLogistica && !isAdmin) return null;
 
   return (
     <div className="space-y-6">
@@ -235,13 +160,11 @@ export default function Logistica() {
         description="Gerenciamento de ordens de serviço"
       />
 
-      {/* Stats Cards */}
+      {/* Cards de status geral */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Pendentes
-            </CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Pendentes</CardTitle>
             <Clock className="h-4 w-4 text-yellow-500" />
           </CardHeader>
           <CardContent>
@@ -251,9 +174,7 @@ export default function Logistica() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Em Andamento
-            </CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Em Andamento</CardTitle>
             <Truck className="h-4 w-4 text-blue-500" />
           </CardHeader>
           <CardContent>
@@ -263,18 +184,46 @@ export default function Logistica() {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Concluídas
-            </CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">Concluídos</CardTitle>
             <CheckCircle className="h-4 w-4 text-green-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">{concluidas}</div>
+            <div className="text-2xl font-bold text-green-600">{concluidos}</div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Filters */}
+      {/* Cards por tipo de solicitação */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {(["bobinas", "troca_equipamento", "retirada_equipamento"] as const).map(tipo => {
+          const cfg = tipoConfig[tipo];
+          const Icon = cfg.icon;
+          const stats = tipoStats(tipo);
+          return (
+            <Card key={tipo} className="border-dashed">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">{cfg.label}</CardTitle>
+                <Icon className={`h-4 w-4 ${cfg.color}`} />
+              </CardHeader>
+              <CardContent className="space-y-1">
+                <div className="text-2xl font-bold">{stats.total}</div>
+                <div className="flex gap-3 text-xs text-muted-foreground">
+                  <span className="flex items-center gap-1">
+                    <span className="inline-block w-2 h-2 rounded-full bg-yellow-400" />
+                    {stats.pendente} pendente{stats.pendente !== 1 ? "s" : ""}
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <span className="inline-block w-2 h-2 rounded-full bg-green-400" />
+                    {stats.concluido} concluído{stats.concluido !== 1 ? "s" : ""}
+                  </span>
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
+
+      {/* Filtros */}
       <div className="flex items-center gap-4">
         <Select value={filterStatus} onValueChange={setFilterStatus}>
           <SelectTrigger className="w-48">
@@ -287,17 +236,14 @@ export default function Logistica() {
             ))}
           </SelectContent>
         </Select>
-
-        <Button variant="outline" onClick={fetchOrdens}>
-          Atualizar
-        </Button>
+        <Button variant="outline" onClick={fetchOrdens}>Atualizar</Button>
       </div>
 
-      {/* Orders Table */}
+      {/* Tabela */}
       <Card>
         <CardContent className="p-0">
           {loading ? (
-            <TableSkeleton columns={7} rows={5} />
+            <TableSkeleton columns={6} rows={5} />
           ) : filteredOrdens.length === 0 ? (
             <div className="p-8 text-center text-muted-foreground">
               <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
@@ -317,36 +263,41 @@ export default function Logistica() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredOrdens.map((ordem) => (
-                  <TableRow key={ordem.id}>
-                    <TableCell className="text-sm">
-                      {format(new Date(ordem.created_at), "dd/MM/yyyy", { locale: ptBR })}
-                    </TableCell>
-                    <TableCell className="font-medium">
-                      {ordem.leads?.nome_fantasia || "-"}
-                    </TableCell>
-                    <TableCell className="capitalize">{ordem.tipo}</TableCell>
-                    <TableCell>{ordem.quantidade} cx</TableCell>
-                    <TableCell>{ordem.profiles?.nome || "-"}</TableCell>
-                    <TableCell>{getStatusBadge(ordem.status)}</TableCell>
-                    <TableCell className="text-right">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => openDetails(ordem)}
-                      >
-                        Ver detalhes
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {filteredOrdens.map(ordem => {
+                  const cfg = tipoConfig[ordem.tipo];
+                  const Icon = cfg?.icon ?? Package;
+                  return (
+                    <TableRow key={ordem.id}>
+                      <TableCell className="text-sm">
+                        {format(new Date(ordem.created_at), "dd/MM/yyyy", { locale: ptBR })}
+                      </TableCell>
+                      <TableCell className="font-medium">
+                        {ordem.leads?.nome_fantasia || "-"}
+                      </TableCell>
+                      <TableCell>
+                        <span className="flex items-center gap-1.5 text-sm">
+                          <Icon className={`h-3.5 w-3.5 ${cfg?.color ?? ""}`} />
+                          {cfg?.label ?? ordem.tipo}
+                        </span>
+                      </TableCell>
+                      <TableCell>{ordem.quantidade}</TableCell>
+                      <TableCell>{ordem.created_by?.name || "-"}</TableCell>
+                      <TableCell>{getStatusBadge(ordem.status)}</TableCell>
+                      <TableCell className="text-right">
+                        <Button size="sm" variant="outline" onClick={() => { setSelectedOrdem(ordem); setDetailsOpen(true); }}>
+                          Ver detalhes
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           )}
         </CardContent>
       </Card>
 
-      {/* Details Dialog */}
+      {/* Dialog de detalhes */}
       <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
@@ -358,12 +309,13 @@ export default function Logistica() {
               <div className="p-4 bg-muted/50 rounded-lg space-y-2">
                 <div className="flex justify-between items-start">
                   <div>
-                    <p className="font-semibold text-lg">
-                      {selectedOrdem.leads?.nome_fantasia}
-                    </p>
+                    <p className="font-semibold text-lg">{selectedOrdem.leads?.nome_fantasia || "Cliente"}</p>
                     <p className="text-sm text-muted-foreground">
                       Solicitado em {format(new Date(selectedOrdem.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
                     </p>
+                    {selectedOrdem.created_by && (
+                      <p className="text-xs text-muted-foreground">por {selectedOrdem.created_by.name}</p>
+                    )}
                   </div>
                   {getStatusBadge(selectedOrdem.status)}
                 </div>
@@ -373,7 +325,8 @@ export default function Logistica() {
                 <div className="flex items-center gap-2">
                   <Package className="h-4 w-4 text-muted-foreground" />
                   <span className="text-sm">
-                    <strong>{selectedOrdem.quantidade}</strong> caixa(s) de bobina
+                    <strong>{tipoConfig[selectedOrdem.tipo]?.label ?? selectedOrdem.tipo}</strong>
+                    {" — "}{selectedOrdem.quantidade} un.
                   </span>
                 </div>
 
@@ -382,9 +335,7 @@ export default function Logistica() {
                   <div className="text-sm">
                     <p>{formatEndereco(selectedOrdem.leads)}</p>
                     {selectedOrdem.leads?.endereco_cep && (
-                      <p className="text-muted-foreground">
-                        CEP: {selectedOrdem.leads.endereco_cep}
-                      </p>
+                      <p className="text-muted-foreground">CEP: {selectedOrdem.leads.endereco_cep}</p>
                     )}
                   </div>
                 </div>
@@ -407,15 +358,15 @@ export default function Logistica() {
               <div className="pt-4 border-t">
                 <p className="text-sm font-medium mb-2">Atualizar Status:</p>
                 <div className="flex flex-wrap gap-2">
-                  {statusOptions.map(status => (
+                  {statusOptions.map(s => (
                     <Button
-                      key={status.value}
+                      key={s.value}
                       size="sm"
-                      variant={selectedOrdem.status === status.value ? "default" : "outline"}
-                      onClick={() => handleStatusChange(selectedOrdem.id, status.value)}
-                      disabled={updatingStatus || selectedOrdem.status === status.value}
+                      variant={selectedOrdem.status === s.value ? "default" : "outline"}
+                      onClick={() => handleStatusChange(selectedOrdem.id, s.value)}
+                      disabled={updatingStatus || selectedOrdem.status === s.value}
                     >
-                      {status.label}
+                      {s.label}
                     </Button>
                   ))}
                 </div>
@@ -424,9 +375,7 @@ export default function Logistica() {
           )}
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDetailsOpen(false)}>
-              Fechar
-            </Button>
+            <Button variant="outline" onClick={() => setDetailsOpen(false)}>Fechar</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

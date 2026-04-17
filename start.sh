@@ -2,16 +2,25 @@
 
 echo "🚀 Iniciando Backend Symfony..."
 cd api
-composer install
-if [ -f "compose.yaml" ]; then
-    docker compose up -d
-else
-    symfony serve -d
-fi
-cd ..
 
+composer install --no-scripts
+
+php -S localhost:8000 -t public/ &
+
+echo "⏳ Aguardando backend subir..."
+sleep 3
+
+cd ..
 
 echo "⚛️ Iniciando Frontend React..."
 cd app
-npm install  
+
+# Só instala se necessário
+if [ ! -d "node_modules" ]; then
+  npm install
+fi
+
+# Limpa cache zoado do Vite
+rm -rf node_modules/.vite
+
 npm run dev

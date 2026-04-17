@@ -30,6 +30,10 @@ export interface Reminder {
     tradeName: string;
     leadCode: number;
     appFunnel: number | null;
+    street: string | null;
+    number: string | null;
+    neighborhood: string | null;
+    city: string | null;
   } | null;
 }
 

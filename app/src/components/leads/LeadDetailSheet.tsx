@@ -3,10 +3,9 @@ import { Lead } from "@/hooks/useLeads";
 import { FUNIL } from "@/constants/funil";
 import { MCC_ABECS } from "@/constants/mccAbecs";
 import { formatMoney, formatCpfCnpj, formatPhone, getRegiaoByEstado } from "@/lib/formatters";
-import { calcularPrazoEntrega } from "@/lib/slaUtils";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { supabase } from "@/integrations/supabase/client";
+import { logisticaService } from "@/features/logistica/logistica.service";
 import { toast } from "sonner";
 import {
   Sheet,
@@ -52,7 +51,6 @@ import {
 } from "lucide-react";
 import { accreditationsService } from "@/features/accreditations/accreditations.service";
 import { visitsService } from "@/features/visits/visits.service";
-import type { Tables } from "@/integrations/supabase/types";
 
 interface LeadDetailSheetProps {
   lead: Lead | null;
@@ -166,19 +164,27 @@ export function LeadDetailSheet({
   const [observacaoRetirada, setObservacaoRetirada] = useState("");
   const [submittingRetirada, setSubmittingRetirada] = useState(false);
 
+  // Estados para modal de entrega de equipamento
+  const [showEntregaModal, setShowEntregaModal] = useState(false);
+  const [qtdEntrega, setQtdEntrega] = useState("1");
+  const [observacaoEntrega, setObservacaoEntrega] = useState("");
+  const [submittingEntrega, setSubmittingEntrega] = useState(false);
+
   // Estados para reenviar credenciamento
   const [resendingAccreditation, setResendingAccreditation] = useState(false);
 
   const fetchOrdensServico = async () => {
     if (!lead?.id) return;
     setLoadingOrdens(true);
-    const { data } = await supabase
-      .from("ordens_servico")
-      .select("*")
-      .eq("lead_id", lead.id)
-      .order("created_at", { ascending: false });
-    setOrdensServico(data || []);
-    setLoadingOrdens(false);
+    try {
+      const data = await logisticaService.listarOrdens({ lead_id: lead.id });
+      setOrdensServico(data || []);
+    } catch (err) {
+      console.error("Erro ao carregar ordens:", err);
+      setOrdensServico([]);
+    } finally {
+      setLoadingOrdens(false);
+    }
   };
 
   useEffect(() => {
@@ -210,28 +216,12 @@ export function LeadDetailSheet({
 
     setSubmittingBobinas(true);
     try {
-      const { data: userData } = await supabase.auth.getUser();
-      if (!userData.user) throw new Error("Usuário não autenticado");
-
-      // Buscar configuração de SLA
-      const { data: slaConfig } = await supabase
-        .from("sla_config")
-        .select("prazo_dias")
-        .eq("tipo", "bobinas")
-        .maybeSingle();
-
-      const prazoEntrega = calcularPrazoEntrega(slaConfig?.prazo_dias || 1);
-
-      const { error } = await supabase.from("ordens_servico").insert({
-        lead_id: lead.id,
-        user_id: userData.user.id,
+      await logisticaService.criarOrdem({
         tipo: "bobinas",
         quantidade: parseInt(qtdBobinas),
+        lead_id: lead.id,
         observacao: observacaoBobinas || null,
-        prazo_entrega: prazoEntrega.toISOString(),
       });
-
-      if (error) throw error;
 
       toast.success("Solicitação de bobinas enviada!");
       setShowBobinasModal(false);
@@ -251,28 +241,12 @@ export function LeadDetailSheet({
 
     setSubmittingTroca(true);
     try {
-      const { data: userData } = await supabase.auth.getUser();
-      if (!userData.user) throw new Error("Usuário não autenticado");
-
-      // Buscar configuração de SLA
-      const { data: slaConfig } = await supabase
-        .from("sla_config")
-        .select("prazo_dias")
-        .eq("tipo", "troca_equipamento")
-        .maybeSingle();
-
-      const prazoEntrega = calcularPrazoEntrega(slaConfig?.prazo_dias || 2);
-
-      const { error } = await supabase.from("ordens_servico").insert({
-        lead_id: lead.id,
-        user_id: userData.user.id,
+      await logisticaService.criarOrdem({
         tipo: "troca_equipamento",
         quantidade: 1,
+        lead_id: lead.id,
         observacao: observacaoTroca || null,
-        prazo_entrega: prazoEntrega.toISOString(),
       });
-
-      if (error) throw error;
 
       toast.success("Solicitação de troca de máquina enviada!");
       setShowTrocaModal(false);
@@ -286,33 +260,42 @@ export function LeadDetailSheet({
     }
   };
 
+  const handleSolicitarEntrega = async () => {
+    if (!lead) return;
+
+    setSubmittingEntrega(true);
+    try {
+      await logisticaService.criarOrdem({
+        tipo: "entrega_equipamento",
+        quantidade: parseInt(qtdEntrega),
+        lead_id: lead.id,
+        observacao: observacaoEntrega || null,
+      });
+
+      toast.success("Solicitação de entrega enviada!");
+      setShowEntregaModal(false);
+      setQtdEntrega("1");
+      setObservacaoEntrega("");
+      fetchOrdensServico();
+    } catch (err) {
+      console.error(err);
+      toast.error("Erro ao solicitar entrega");
+    } finally {
+      setSubmittingEntrega(false);
+    }
+  };
+
   const handleSolicitarRetirada = async () => {
     if (!lead) return;
 
     setSubmittingRetirada(true);
     try {
-      const { data: userData } = await supabase.auth.getUser();
-      if (!userData.user) throw new Error("Usuário não autenticado");
-
-      // Buscar configuração de SLA
-      const { data: slaConfig } = await supabase
-        .from("sla_config")
-        .select("prazo_dias")
-        .eq("tipo", "retirada_equipamento")
-        .maybeSingle();
-
-      const prazoEntrega = calcularPrazoEntrega(slaConfig?.prazo_dias || 3);
-
-      const { error } = await supabase.from("ordens_servico").insert({
-        lead_id: lead.id,
-        user_id: userData.user.id,
+      await logisticaService.criarOrdem({
         tipo: "retirada_equipamento",
         quantidade: parseInt(qtdRetirada),
+        lead_id: lead.id,
         observacao: observacaoRetirada || null,
-        prazo_entrega: prazoEntrega.toISOString(),
       });
-
-      if (error) throw error;
 
       toast.success("Solicitação de retirada enviada!");
       setShowRetiradaModal(false);
@@ -332,6 +315,8 @@ export function LeadDetailSheet({
     switch (tipo) {
       case "bobinas":
         return quantidade === 10 ? "1 caixa (10 un)" : `${quantidade} bobinas`;
+      case "entrega_equipamento":
+        return `Entrega de Maquininha (${quantidade} equip.)`;
       case "troca_equipamento":
         return "Troca de Máquina";
       case "retirada_equipamento":
@@ -641,6 +626,23 @@ export function LeadDetailSheet({
                       </p>
                     </div>
 
+                    {/* Seção Ordem de Entrega */}
+                    <div className="pt-4 border-t">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Truck className="h-5 w-5 text-primary" />
+                        <h3 className="font-medium">Ordem</h3>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="w-full justify-start"
+                        onClick={() => setShowEntregaModal(true)}
+                      >
+                        <Package className="h-4 w-4 mr-2" />
+                        Solicitar Entrega de Maquininha
+                      </Button>
+                    </div>
+
                     {/* Seção Solicitações */}
                     <div className="pt-4 border-t">
                       <div className="flex items-center gap-2 mb-3">
@@ -830,6 +832,55 @@ export function LeadDetailSheet({
           </div>
         )}
       </SheetContent>
+
+      {/* Modal Solicitar Entrega de Maquininha */}
+      <Dialog open={showEntregaModal} onOpenChange={setShowEntregaModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Solicitar Entrega de Maquininha</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            <p className="text-sm text-muted-foreground">
+              Solicite a entrega de uma ou mais maquininhas para o cliente.
+            </p>
+
+            <div className="space-y-2">
+              <Label>Quantidade de Equipamentos</Label>
+              <Select value={qtdEntrega} onValueChange={setQtdEntrega}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {[1, 2, 3, 4, 5].map(num => (
+                    <SelectItem key={num} value={String(num)}>
+                      {num} equipamento(s)
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Observações (opcional)</Label>
+              <Textarea
+                placeholder="Ex: Modelo específico, endereço de entrega diferente..."
+                value={observacaoEntrega}
+                onChange={(e) => setObservacaoEntrega(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="gap-3 sm:gap-2">
+            <Button variant="outline" onClick={() => setShowEntregaModal(false)}>
+              Cancelar
+            </Button>
+            <Button onClick={handleSolicitarEntrega} disabled={submittingEntrega}>
+              {submittingEntrega ? "Enviando..." : "Solicitar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Modal Solicitar Bobinas */}
       <Dialog open={showBobinasModal} onOpenChange={setShowBobinasModal}>
