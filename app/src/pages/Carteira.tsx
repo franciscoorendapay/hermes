@@ -55,7 +55,8 @@ const getSafraDiff = (lead: Lead): number => {
 export default function Carteira() {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
-  const { isAdmin } = useUserRole();
+  const { isAdmin, role } = useUserRole();
+  const showComissao = role !== 'comercial';
   const { data: leads = [], isLoading, refetch } = useLeads(isAuthenticated);
   const { data: transacionadoMap = {}, isLoading: isLoadingTransacionado, refetch: refetchTransacionado } = useTransacionado(isAuthenticated);
   const { settings: commissionSettings, isLoading: isLoadingCommission } = useCommissionSettings();
@@ -252,15 +253,17 @@ export default function Carteira() {
           </CardContent>
         </Card>
 
-        <Card className="bg-white border border-border rounded-xl shadow-none">
-          <CardContent className="p-3">
-            <div className="flex items-center gap-2 text-muted-foreground mb-1">
-              <Coins className="h-4 w-4" />
-              <span className="font-semibold text-[#454545] text-xs">Comissão Prevista</span>
-            </div>
-            {dataLoading ? <Skeleton className="h-5 w-24 mt-1" /> : <p className="font-semibold text-green-600 text-base">{formatMoney(kpis.comissaoTotal)}</p>}
-          </CardContent>
-        </Card>
+        {showComissao && (
+          <Card className="bg-white border border-border rounded-xl shadow-none">
+            <CardContent className="p-3">
+              <div className="flex items-center gap-2 text-muted-foreground mb-1">
+                <Coins className="h-4 w-4" />
+                <span className="font-semibold text-[#454545] text-xs">Comissão Prevista</span>
+              </div>
+              {dataLoading ? <Skeleton className="h-5 w-24 mt-1" /> : <p className="font-semibold text-green-600 text-base">{formatMoney(kpis.comissaoTotal)}</p>}
+            </CardContent>
+          </Card>
+        )}
 
         {isAdmin && (
           <Card className="bg-white border border-border rounded-xl shadow-none">
@@ -352,7 +355,9 @@ export default function Carteira() {
                         {isAdmin && (
                           <p className="text-[10px] text-muted-foreground">receita: {formatMoney(receita)}</p>
                         )}
-                        <p className="text-[10px] text-green-600 font-medium">comissão: {formatMoney(comissaoCliente)}</p>
+                        {showComissao && (
+                          <p className="text-[10px] text-green-600 font-medium">comissão: {formatMoney(comissaoCliente)}</p>
+                        )}
                       </>
                     ) : (
                       <>
@@ -517,7 +522,9 @@ export default function Carteira() {
                           {isAdmin && (
                             <p className="text-[10px] text-muted-foreground">receita: {formatMoney(receita)}</p>
                           )}
-                          <p className="text-[10px] text-green-600 font-medium">comissão: {formatMoney(comissaoCliente)}</p>
+                          {showComissao && (
+                            <p className="text-[10px] text-green-600 font-medium">comissão: {formatMoney(comissaoCliente)}</p>
+                          )}
                         </>
                       ) : (
                         <>
