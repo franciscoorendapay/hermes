@@ -36,6 +36,8 @@ import AdminLeads from "./pages/AdminLeads";
 import AdminDuplicateLeads from "./pages/AdminDuplicateLeads";
 import AccreditationAdmin from "./pages/AccreditationAdmin";
 import AdminLogs from "./pages/AdminLogs";
+import AdminInventory from "./pages/AdminInventory";
+import AdminInventoryConsultar from "./pages/AdminInventoryConsultar";
 import { MobilePwaBlocker } from "@/components/MobilePwaBlocker";
 import { usePwaInstall } from "@/hooks/usePwaInstall";
 
@@ -61,6 +63,8 @@ const App = () => {
               <Route path="/admin/leads/duplicates" element={<AdminDuplicateLeads />} />
               <Route path="/admin/accreditations" element={<AccreditationAdmin />} />
               <Route path="/admin/logs" element={<AdminLogs />} />
+              <Route path="/admin/inventory" element={<AdminInventory />} />
+              <Route path="/admin/inventory/consultar" element={<AdminInventoryConsultar />} />
               <Route element={<AppLayout />}>
                 <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/leads" element={<Leads />} />

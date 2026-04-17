@@ -4,7 +4,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useUserRole } from "@/hooks/useUserRole";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { LayoutDashboard, Truck, LineChart, LogOut, Shield, FileCheck, FileText, Users } from "lucide-react";
+import { LayoutDashboard, Truck, LineChart, LogOut, Shield, FileCheck, FileText, Users, Package } from "lucide-react";
 import { UserImpersonationSelector } from "@/components/admin/UserImpersonationSelector";
 
 export default function AdminDashboard() {
@@ -42,6 +42,14 @@ export default function AdminDashboard() {
       path: "/gestao",
       color: "text-purple-500",
       bgColor: "bg-purple-50"
+    },
+    {
+      title: "Inventário",
+      description: "Controle de estoque e maquininhas disponíveis",
+      icon: Package,
+      path: "/admin/inventory",
+      color: "text-teal-500",
+      bgColor: "bg-teal-50"
     },
     {
       title: "Logística",
