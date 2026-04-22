@@ -80,7 +80,7 @@ export default function LogisticaOrdens() {
   const handleStatusChange = async (ordemId: string, newStatus: string) => {
     setUpdatingStatus(true);
     try {
-      await logisticaService.atualizarStatus(ordemId, newStatus);
+      await logisticaService.atualizarStatus(ordemId, selectedOrdem!.tipo, newStatus);
       toast.success("Status atualizado com sucesso!");
       setOrdens(prev => prev.map(o => o.id === ordemId ? { ...o, status: newStatus } : o));
       setSelectedOrdem(prev => prev ? { ...prev, status: newStatus } : null);

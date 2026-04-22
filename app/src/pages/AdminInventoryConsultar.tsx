@@ -49,11 +49,10 @@ export default function AdminInventoryConsultar() {
     queryKey: ["inventario-consultar", filters, page],
     queryFn: () =>
       inventarioService.consultar({
-        busca: filters.busca || undefined,
+        q:      filters.busca  || undefined,
         status: filters.status || undefined,
         regiao: filters.regiao || undefined,
         page,
-        per_page: PER_PAGE,
       }),
     retry: false,
   });
