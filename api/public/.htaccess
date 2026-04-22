@@ -3,6 +3,9 @@
 <IfModule mod_rewrite.c>
     RewriteEngine On
 
+    # Passa o header Authorization ao PHP (necessário em LiteSpeed/FastCGI)
+    RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
+
     # Handle OPTIONS preflight (CORS)
     RewriteCond %{REQUEST_METHOD} OPTIONS
     RewriteRule .* - [R=204,L]
