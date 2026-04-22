@@ -19,11 +19,20 @@ class OrdemLogisticaRepository extends ServiceEntityRepository
             ->leftJoin('o.lead', 'l')
             ->leftJoin('o.createdBy', 'u')
             ->addSelect('l', 'u')
-            ->orderBy('o.createdAt', 'DESC');
+            ->orderBy('COALESCE(o.dataAtendimento, o.createdAt)', 'DESC');
 
         if (!empty($filters['status'])) {
-            $qb->andWhere('o.status = :status')
-               ->setParameter('status', $filters['status']);
+            $statuses = is_array($filters['status'])
+                ? $filters['status']
+                : array_map('trim', explode(',', $filters['status']));
+
+            if (count($statuses) === 1) {
+                $qb->andWhere('o.status = :status')
+                   ->setParameter('status', $statuses[0]);
+            } else {
+                $qb->andWhere('o.status IN (:statuses)')
+                   ->setParameter('statuses', $statuses);
+            }
         }
 
         if (!empty($filters['tipo'])) {
@@ -34,6 +43,16 @@ class OrdemLogisticaRepository extends ServiceEntityRepository
         if (!empty($filters['lead_id'])) {
             $qb->andWhere('l.id = :lead_id')
                ->setParameter('lead_id', $filters['lead_id']);
+        }
+
+        if (!empty($filters['data_inicio'])) {
+            $qb->andWhere('COALESCE(o.dataAtendimento, o.createdAt) >= :data_inicio')
+               ->setParameter('data_inicio', new \DateTimeImmutable($filters['data_inicio']));
+        }
+
+        if (!empty($filters['data_fim'])) {
+            $qb->andWhere('COALESCE(o.dataAtendimento, o.createdAt) <= :data_fim')
+               ->setParameter('data_fim', new \DateTimeImmutable($filters['data_fim']));
         }
 
         return $qb->getQuery()->getResult();

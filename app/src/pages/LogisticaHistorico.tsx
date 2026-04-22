@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import { format, startOfMonth, endOfMonth, subMonths } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,27 +12,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { 
-  CheckCircle, 
-  XCircle, 
+import {
+  CheckCircle,
+  XCircle,
   Timer,
   Package,
   RefreshCw,
   TrendingUp
 } from "lucide-react";
-
-interface OrdemHistorico {
-  id: string;
-  tipo: string;
-  quantidade: number;
-  status: string;
-  created_at: string;
-  data_atendimento: string | null;
-  entregue_no_prazo: boolean | null;
-  leads?: {
-    nome_fantasia: string;
-  };
-}
+import { logisticaService, OrdemLogistica } from "@/features/logistica/logistica.service";
 
 const tipoLabels: Record<string, string> = {
   bobinas: "Bobinas",
@@ -44,46 +31,29 @@ const tipoLabels: Record<string, string> = {
 };
 
 export default function LogisticaHistorico() {
-  const [ordens, setOrdens] = useState<OrdemHistorico[]>([]);
+  const [ordens, setOrdens] = useState<OrdemLogistica[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [mesFilter, setMesFilter] = useState("atual");
 
   const getMesRange = (filter: string) => {
     const hoje = new Date();
-    switch (filter) {
-      case "anterior":
-        const mesAnterior = subMonths(hoje, 1);
-        return { inicio: startOfMonth(mesAnterior), fim: endOfMonth(mesAnterior) };
-      case "atual":
-      default:
-        return { inicio: startOfMonth(hoje), fim: endOfMonth(hoje) };
+    if (filter === "anterior") {
+      const mesAnterior = subMonths(hoje, 1);
+      return { inicio: startOfMonth(mesAnterior), fim: endOfMonth(mesAnterior) };
     }
+    return { inicio: startOfMonth(hoje), fim: endOfMonth(hoje) };
   };
 
   const fetchOrdens = async () => {
     try {
       const { inicio, fim } = getMesRange(mesFilter);
-      
-      const { data, error } = await supabase
-        .from("ordens_servico")
-        .select(`
-          id,
-          tipo,
-          quantidade,
-          status,
-          created_at,
-          data_atendimento,
-          entregue_no_prazo,
-          leads (nome_fantasia)
-        `)
-        .eq("status", "concluida")
-        .gte("data_atendimento", inicio.toISOString())
-        .lte("data_atendimento", fim.toISOString())
-        .order("data_atendimento", { ascending: false });
-
-      if (error) throw error;
-      setOrdens(data || []);
+      const data = await logisticaService.listarOrdens({
+        status: "concluido",
+        data_inicio: inicio.toISOString(),
+        data_fim: fim.toISOString(),
+      });
+      setOrdens(data);
     } catch (err) {
       console.error("Erro ao carregar histórico:", err);
     } finally {
@@ -101,7 +71,6 @@ export default function LogisticaHistorico() {
     fetchOrdens();
   };
 
-  // Estatísticas
   const stats = {
     total: ordens.length,
     noPrazo: ordens.filter(o => o.entregue_no_prazo === true).length,
@@ -109,8 +78,8 @@ export default function LogisticaHistorico() {
     quantidadeTotal: ordens.reduce((acc, o) => acc + o.quantidade, 0),
   };
 
-  const percentualNoPrazo = stats.total > 0 
-    ? Math.round((stats.noPrazo / stats.total) * 100) 
+  const percentualNoPrazo = stats.total > 0
+    ? Math.round((stats.noPrazo / stats.total) * 100)
     : 100;
 
   if (loading) {
@@ -130,8 +99,8 @@ export default function LogisticaHistorico() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-bold text-foreground">Histórico</h2>
-        <Button 
-          variant="ghost" 
+        <Button
+          variant="ghost"
           size="icon"
           onClick={handleRefresh}
           disabled={refreshing}
@@ -195,10 +164,10 @@ export default function LogisticaHistorico() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                      ordem.entregue_no_prazo === true 
-                        ? "bg-green-100" 
-                        : ordem.entregue_no_prazo === false 
-                          ? "bg-red-100" 
+                      ordem.entregue_no_prazo === true
+                        ? "bg-green-100"
+                        : ordem.entregue_no_prazo === false
+                          ? "bg-red-100"
                           : "bg-gray-100"
                     }`}>
                       {ordem.entregue_no_prazo === true ? (
@@ -220,25 +189,25 @@ export default function LogisticaHistorico() {
                   </div>
                   <div className="text-right">
                     <p className="text-xs font-medium text-foreground">
-                      {ordem.data_atendimento 
+                      {ordem.data_atendimento
                         ? format(new Date(ordem.data_atendimento), "dd/MM", { locale: ptBR })
                         : "-"
                       }
                     </p>
-                    <Badge 
-                      variant="outline" 
+                    <Badge
+                      variant="outline"
                       className={`text-[10px] ${
-                        ordem.entregue_no_prazo === true 
-                          ? "bg-green-100 text-green-700 border-green-300" 
-                          : ordem.entregue_no_prazo === false 
+                        ordem.entregue_no_prazo === true
+                          ? "bg-green-100 text-green-700 border-green-300"
+                          : ordem.entregue_no_prazo === false
                             ? "bg-red-100 text-red-700 border-red-300"
                             : ""
                       }`}
                     >
-                      {ordem.entregue_no_prazo === true 
-                        ? "No prazo" 
-                        : ordem.entregue_no_prazo === false 
-                          ? "Atrasada" 
+                      {ordem.entregue_no_prazo === true
+                        ? "No prazo"
+                        : ordem.entregue_no_prazo === false
+                          ? "Atrasada"
                           : "Sem prazo"
                       }
                     </Badge>

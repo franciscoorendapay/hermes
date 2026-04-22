@@ -8,6 +8,8 @@ export interface OrdemLogistica {
   observacao: string | null;
   created_at: string;
   updated_at: string | null;
+  data_atendimento: string | null;
+  entregue_no_prazo: boolean | null;
   created_by: { id: string; name: string } | null;
   leads: {
     id: string;
@@ -36,11 +38,15 @@ export const logisticaService = {
     status?: string;
     tipo?: string;
     lead_id?: string;
+    data_inicio?: string;
+    data_fim?: string;
   }): Promise<OrdemLogistica[]> => {
     const params = new URLSearchParams();
     if (filters?.status) params.set("status", filters.status);
     if (filters?.tipo) params.set("tipo", filters.tipo);
     if (filters?.lead_id) params.set("lead_id", filters.lead_id);
+    if (filters?.data_inicio) params.set("data_inicio", filters.data_inicio);
+    if (filters?.data_fim) params.set("data_fim", filters.data_fim);
 
     const response = await api.get(`/logistica/ordens?${params.toString()}`);
     return response.data;

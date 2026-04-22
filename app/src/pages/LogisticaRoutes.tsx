@@ -1,16 +1,14 @@
 import { useState, useEffect, useMemo } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
-import { 
-  MapPin, 
-  Navigation, 
-  Package, 
-  Truck, 
+import {
+  MapPin,
+  Navigation,
+  Truck,
   CheckCircle,
   Route,
   RefreshCw,
@@ -18,25 +16,7 @@ import {
   Map
 } from "lucide-react";
 import { LogisticaMap } from "@/components/logistica/LogisticaMap";
-
-interface OrdemParaRota {
-  id: string;
-  tipo: string;
-  quantidade: number;
-  status: string;
-  created_at: string;
-  leads: {
-    nome_fantasia: string;
-    endereco_logradouro: string | null;
-    endereco_numero: string | null;
-    endereco_bairro: string | null;
-    endereco_cidade: string | null;
-    endereco_estado: string | null;
-    endereco_cep: string | null;
-    lat: number | null;
-    lng: number | null;
-  } | null;
-}
+import { logisticaService, OrdemLogistica } from "@/features/logistica/logistica.service";
 
 const tipoLabels: Record<string, string> = {
   bobinas: "Bobinas",
@@ -55,7 +35,7 @@ const tipoIcons: Record<string, string> = {
 };
 
 export default function LogisticaRoutes() {
-  const [ordens, setOrdens] = useState<OrdemParaRota[]>([]);
+  const [ordens, setOrdens] = useState<OrdemLogistica[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedOrdens, setSelectedOrdens] = useState<Set<string>>(new Set());
@@ -64,31 +44,10 @@ export default function LogisticaRoutes() {
 
   const fetchOrdens = async () => {
     try {
-      const { data, error } = await supabase
-        .from("ordens_servico")
-        .select(`
-          id,
-          tipo,
-          quantidade,
-          status,
-          created_at,
-          leads (
-            nome_fantasia,
-            endereco_logradouro,
-            endereco_numero,
-            endereco_bairro,
-            endereco_cidade,
-            endereco_estado,
-            endereco_cep,
-            lat,
-            lng
-          )
-        `)
-        .in("status", ["pendente", "em_andamento"])
-        .order("created_at", { ascending: true });
-
-      if (error) throw error;
-      setOrdens(data || []);
+      const data = await logisticaService.listarOrdens({
+        status: "pendente,em_andamento",
+      });
+      setOrdens(data);
     } catch (err) {
       console.error("Erro ao carregar ordens:", err);
       toast.error("Erro ao carregar ordens");
@@ -133,13 +92,11 @@ export default function LogisticaRoutes() {
 
   const handleSaveRoute = async () => {
     try {
-      const { error } = await supabase
-        .from("ordens_servico")
-        .update({ status: "em_andamento" })
-        .in("id", Array.from(selectedOrdens));
-
-      if (error) throw error;
-      
+      await Promise.all(
+        Array.from(selectedOrdens).map(id =>
+          logisticaService.atualizarStatus(id, "em_andamento")
+        )
+      );
       setRouteSaved(true);
       toast.success("Rota salva! Ordens marcadas como em andamento.");
       fetchOrdens();
@@ -162,7 +119,7 @@ export default function LogisticaRoutes() {
     const origin = destinations[0];
     const waypoints = destinations.slice(1, -1).join("|");
     const destination = destinations[destinations.length - 1] || origin;
-    
+
     let mapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}`;
     if (waypoints) {
       mapsUrl += `&waypoints=${waypoints}`;
@@ -172,7 +129,7 @@ export default function LogisticaRoutes() {
     window.open(mapsUrl, "_blank");
   };
 
-  const formatEndereco = (leads: OrdemParaRota["leads"]) => {
+  const formatEndereco = (leads: OrdemLogistica["leads"]) => {
     if (!leads) return "Endereço não disponível";
     const parts = [
       leads.endereco_logradouro,
@@ -206,15 +163,15 @@ export default function LogisticaRoutes() {
             </p>
           </div>
           <div className="flex gap-2">
-            <Button 
-              variant={showMap ? "default" : "outline"} 
+            <Button
+              variant={showMap ? "default" : "outline"}
               size="icon"
               onClick={() => setShowMap(!showMap)}
             >
               <Map className="h-4 w-4" />
             </Button>
-            <Button 
-              variant="ghost" 
+            <Button
+              variant="ghost"
               size="icon"
               onClick={handleRefresh}
               disabled={refreshing}
@@ -256,10 +213,10 @@ export default function LogisticaRoutes() {
                   {selectedOrdensData.reduce((acc, o) => acc + o.quantidade, 0)} un
                 </span>
               </div>
-              
+
               <div className="flex gap-2 pt-2">
                 {!routeSaved ? (
-                  <Button 
+                  <Button
                     className="flex-1"
                     onClick={handleSaveRoute}
                   >
@@ -267,7 +224,7 @@ export default function LogisticaRoutes() {
                     Iniciar Entregas
                   </Button>
                 ) : (
-                  <Button 
+                  <Button
                     className="flex-1"
                     onClick={handleStartNavigation}
                   >
@@ -284,8 +241,8 @@ export default function LogisticaRoutes() {
         {/* Select All */}
         {ordens.length > 0 && (
           <div className="flex items-center justify-between">
-            <Button 
-              variant="ghost" 
+            <Button
+              variant="ghost"
               size="sm"
               onClick={selectAll}
               className="text-xs"
@@ -310,11 +267,11 @@ export default function LogisticaRoutes() {
         ) : (
           <div className="space-y-3">
             {ordens.map((ordem, index) => (
-              <Card 
+              <Card
                 key={ordem.id}
                 className={`cursor-pointer transition-all ${
-                  selectedOrdens.has(ordem.id) 
-                    ? "border-primary bg-primary/5 shadow-sm" 
+                  selectedOrdens.has(ordem.id)
+                    ? "border-primary bg-primary/5 shadow-sm"
                     : "hover:bg-muted/50"
                 }`}
                 onClick={() => toggleOrdem(ordem.id)}
@@ -326,7 +283,7 @@ export default function LogisticaRoutes() {
                       onCheckedChange={() => toggleOrdem(ordem.id)}
                       className="mt-1"
                     />
-                    
+
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
                         <span className="text-lg">{tipoIcons[ordem.tipo] || "📦"}</span>
@@ -334,12 +291,12 @@ export default function LogisticaRoutes() {
                           {ordem.leads?.nome_fantasia || "Cliente"}
                         </p>
                       </div>
-                      
+
                       <div className="flex items-center gap-1 text-xs text-muted-foreground mb-1">
                         <MapPin className="h-3 w-3" />
                         <span className="truncate">{formatEndereco(ordem.leads)}</span>
                       </div>
-                      
+
                       <div className="flex items-center gap-2 mt-2 flex-wrap">
                         <Badge variant="outline" className="text-[10px]">
                           {tipoLabels[ordem.tipo] || ordem.tipo}

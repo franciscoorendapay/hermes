@@ -11,17 +11,25 @@
 
 # CORS Headers - Allow all origins for API
 <IfModule mod_headers.c>
-    # Always set CORS headers
     Header always set Access-Control-Allow-Origin "*"
     Header always set Access-Control-Allow-Methods "GET, POST, PUT, PATCH, DELETE, OPTIONS"
     Header always set Access-Control-Allow-Headers "Content-Type, Authorization, X-Requested-With"
     Header always set Access-Control-Expose-Headers "Content-Length, Content-Type, Link"
     Header always set Access-Control-Max-Age "3600"
-
-    # Handle OPTIONS requests (preflight)
-    RewriteCond %{REQUEST_METHOD} OPTIONS
-    RewriteRule ^(.*)$ $1 [R=204,L]
 </IfModule>
+
+# Basic Auth - bypassa se já tem Bearer token ou se é preflight OPTIONS
+SetEnvIf Authorization "Bearer .+" NO_BASIC_AUTH
+SetEnvIf Request_Method OPTIONS NO_BASIC_AUTH
+
+AuthType Basic
+AuthName "API Access"
+AuthUserFile /home/sejaopay/public_html/api/public/.htpasswd
+
+<RequireAny>
+    Require env NO_BASIC_AUTH
+    Require valid-user
+</RequireAny>
 
 # Security headers
 <IfModule mod_headers.c>
