@@ -3,28 +3,14 @@
 <IfModule mod_rewrite.c>
     RewriteEngine On
 
-    # Bypass Basic Auth for OPTIONS preflight (CORS)
+    # Handle OPTIONS preflight (CORS)
     RewriteCond %{REQUEST_METHOD} OPTIONS
-    RewriteRule .* - [E=NO_AUTH:1,L]
+    RewriteRule .* - [R=204,L]
 
     # Redirect to index.php
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteRule ^(.*)$ index.php [QSA,L]
 </IfModule>
-
-# Bypass Basic Auth se vier o header secreto da aplicação React
-SetEnvIfNoCase X-API-Key "Sy7xP!k2mNqR9vLw" NO_AUTH
-
-# Basic Auth
-AuthType Basic
-AuthName "API Access"
-AuthUserFile /home2/hermesorendapayc/hermes2/api/public/.htpasswd
-Require valid-user
-
-# Satisfy Any: passa se tiver IP/env liberado OU se autenticar com Basic Auth
-Order Allow,Deny
-Allow from env=NO_AUTH
-Satisfy Any
 
 # CORS Headers
 <IfModule mod_headers.c>
