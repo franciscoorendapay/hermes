@@ -8,6 +8,7 @@ export const api = axios.create({
   baseURL: BASE_URL,
   headers: {
     'Content-Type': 'application/json',
+    'X-API-Key': 'Sy7xP!k2mNqR9vLw',
   },
 });
 

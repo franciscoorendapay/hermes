@@ -1,35 +1,39 @@
-# Symfony .htaccess with CORS headers for cPanel
+# Symfony .htaccess with CORS headers for cPanel/LiteSpeed
 
-# Enable rewrite engine
 <IfModule mod_rewrite.c>
     RewriteEngine On
+
+    # Bypass Basic Auth for OPTIONS preflight (CORS)
+    RewriteCond %{REQUEST_METHOD} OPTIONS
+    RewriteRule .* - [E=NO_AUTH:1,L]
 
     # Redirect to index.php
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteRule ^(.*)$ index.php [QSA,L]
 </IfModule>
 
-# CORS Headers - Allow all origins for API
+# Bypass Basic Auth se vier o header secreto da aplicação React
+SetEnvIfNoCase X-API-Key "Sy7xP!k2mNqR9vLw" NO_AUTH
+
+# Basic Auth
+AuthType Basic
+AuthName "API Access"
+AuthUserFile /home2/hermesorendapayc/hermes2/api/public/.htpasswd
+Require valid-user
+
+# Satisfy Any: passa se tiver IP/env liberado OU se autenticar com Basic Auth
+Order Allow,Deny
+Allow from env=NO_AUTH
+Satisfy Any
+
+# CORS Headers
 <IfModule mod_headers.c>
     Header always set Access-Control-Allow-Origin "*"
     Header always set Access-Control-Allow-Methods "GET, POST, PUT, PATCH, DELETE, OPTIONS"
-    Header always set Access-Control-Allow-Headers "Content-Type, Authorization, X-Requested-With"
+    Header always set Access-Control-Allow-Headers "Content-Type, Authorization, X-Requested-With, X-API-Key"
     Header always set Access-Control-Expose-Headers "Content-Length, Content-Type, Link"
     Header always set Access-Control-Max-Age "3600"
 </IfModule>
-
-# Basic Auth - bypassa se já tem Bearer token ou se é preflight OPTIONS
-SetEnvIf Authorization "Bearer .+" NO_BASIC_AUTH
-SetEnvIf Request_Method OPTIONS NO_BASIC_AUTH
-
-AuthType Basic
-AuthName "API Access"
-AuthUserFile /home/sejaopay/public_html/api/public/.htpasswd
-
-<RequireAny>
-    Require env NO_BASIC_AUTH
-    Require valid-user
-</RequireAny>
 
 # Security headers
 <IfModule mod_headers.c>
@@ -38,7 +42,7 @@ AuthUserFile /home/sejaopay/public_html/api/public/.htpasswd
     Header set X-XSS-Protection "1; mode=block"
 </IfModule>
 
-# PHP Settings (if allowed)
+# PHP Settings
 <IfModule mod_php.c>
     php_value upload_max_filesize 50M
     php_value post_max_size 50M
