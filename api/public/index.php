@@ -1,14 +1,20 @@
 <?php
 
-// Proteção: libera OPTIONS (CORS preflight), Bearer token (JWT) e Basic Auth
+// Proteção: libera OPTIONS (CORS), Bearer token (JWT) e Basic Auth
 if ($_SERVER['REQUEST_METHOD'] !== 'OPTIONS') {
+
+    // Tenta todas as fontes possíveis do header Authorization
     $authHeader = $_SERVER['HTTP_AUTHORIZATION']
                 ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION']
                 ?? '';
 
+    if (empty($authHeader) && function_exists('getallheaders')) {
+        $allHeaders = getallheaders();
+        $authHeader = $allHeaders['Authorization'] ?? $allHeaders['authorization'] ?? '';
+    }
+
     $hasBearerToken = str_starts_with($authHeader, 'Bearer ');
 
-    // Basic Auth via header Authorization (React sem token) ou via PHP_AUTH (browser)
     $hasBasicAuth = (str_starts_with($authHeader, 'Basic ')
                   && base64_decode(substr($authHeader, 6)) === 'acesso:!Syn3421')
                 || (($_SERVER['PHP_AUTH_USER'] ?? '') === 'acesso'
