@@ -214,6 +214,7 @@ interface LaunchVisitSheetProps {
   onLeadSaved?: () => void;
   reminderId?: string; // ID do lembrete a ser atualizado após criar o lead
   onLeadSavedWithId?: (leadId: string) => void; // Callback com o ID do lead criado
+  registerVisitInHistory?: boolean; // Apenas registra no histórico quando aberto pelo agendamento
 }
 
 export function LaunchVisitSheet({
@@ -227,6 +228,7 @@ export function LaunchVisitSheet({
   onLeadSaved,
   reminderId,
   onLeadSavedWithId,
+  registerVisitInHistory = false,
 }: LaunchVisitSheetProps) {
   const geolocation = useGeolocation();
   const auth = useAuth();
@@ -1191,6 +1193,7 @@ export function LaunchVisitSheet({
   };
 
   const registerVisitLog = async (leadId: string, tipo: string, status: string, obs?: string) => {
+    if (!registerVisitInHistory) return;
     try {
       console.log("[VisitLog] Iniciando registro de visita...", { leadId, tipo });
       const tId = toast.loading("Capturando sua geolocalização exata...");
@@ -1666,7 +1669,9 @@ export function LaunchVisitSheet({
             await leadsService.update(leadSelecionado.id, apiData);
           }
           
-          await registerVisitLog(leadSelecionado.id, "retorno", "concluida");
+          const funilTypeMap: Record<number, string> = { 1: "prospeccao", 2: "qualificacao", 3: "negociacao", 4: "precificacao", 5: "credenciamento" };
+          const currentVisitType = funilTypeMap[leadSelecionado.funil_app ?? 1] ?? "prospeccao";
+          await registerVisitLog(leadSelecionado.id, currentVisitType, "concluida");
         }
 
         const faseSelecionada = novaFase ? FUNIL.find(f => f.id.toString() === novaFase) : null;
@@ -2967,11 +2972,11 @@ export function LaunchVisitSheet({
                 {/* Divisor */}
                 <div className="flex items-center gap-3">
                   <div className="flex-1 h-px bg-border"></div>
-                  <span className="text-xs text-muted-foreground">ou apenas registrar visita</span>
+                  <span className="text-xs text-muted-foreground">ou confirmar visita sem alterações</span>
                   <div className="flex-1 h-px bg-border"></div>
                 </div>
 
-                {/* Registro simples de visita */}
+                {/* Confirmar visita sem atualização de dados */}
                 <div className="space-y-4 p-4 border rounded-lg bg-muted/30">
                   {/* Observação */}
                   <div className="space-y-2">
@@ -2985,34 +2990,23 @@ export function LaunchVisitSheet({
                     />
                   </div>
 
-                  {/* Nova Fase (opcional para registro simples) */}
-                  {/* <div className="space-y-2">
-                    <Label htmlFor="novaFase">Atualizar fase (opcional)</Label>
-                    <Select value={novaFase} onValueChange={setNovaFase}>
-                      <SelectTrigger id="novaFase">
-                        <SelectValue placeholder="Manter fase atual" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {availableFases.map((fase) => (
-                          <SelectItem key={fase.id} value={fase.id.toString()}>
-                            <div className="flex items-center gap-2">
-                              <div className={`h-2 w-2 rounded-full ${fase.color}`} />
-                              {fase.label}
-                              {fase.id === (returnSelectedLead.funil_app ?? 0) && " (atual)"}
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div> */}
-
                   <Button
                     className="w-full"
                     variant="outline"
                     onClick={handleReturnSubmit}
                     disabled={loading}
                   >
-                    {loading ? "Salvando..." : "Registrar Visita Simples"}
+                    <Check className="h-4 w-4 mr-2" />
+                    {loading ? "Salvando..." : "Confirmar Visita"}
+                  </Button>
+
+                  <Button
+                    className="w-full text-destructive hover:text-destructive"
+                    variant="ghost"
+                    onClick={() => onOpenChange(false)}
+                    disabled={loading}
+                  >
+                    Visita não ocorreu
                   </Button>
                 </div>
               </div>
@@ -3082,9 +3076,18 @@ export function LaunchVisitSheet({
                   {loading ? "Salvando..." : (
                     <>
                       <Check className="h-5 w-5 mr-2 text-primary" />
-                      Registrar Visita
+                      Confirmar Visita
                     </>
                   )}
+                </Button>
+
+                <Button
+                  className="w-full text-destructive hover:text-destructive"
+                  variant="ghost"
+                  onClick={() => onOpenChange(false)}
+                  disabled={loading}
+                >
+                  Visita não ocorreu
                 </Button>
               </div>
             )}

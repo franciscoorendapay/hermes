@@ -7,7 +7,7 @@ import {
   Calendar as CalendarIcon,
   Clock,
   MapPin,
-  X,
+  Check,
   Plus,
   Loader2,
   UserPlus,
@@ -16,12 +16,15 @@ import {
   RefreshCw,
   FileText,
   Pencil,
+  XCircle,
 } from "lucide-react";
 import { format, isSameDay, parseISO } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { useReminders, Reminder, EstabelecimentoData } from "@/hooks/useReminders";
 import { useLeads, Lead } from "@/hooks/useLeads";
 import { useAuth } from "@/hooks/useAuth";
+import { visitsService } from "@/features/visits/visits.service";
+import { api } from "@/shared/api/http";
 import { AddVisitDialog } from "./AddVisitDialog";
 import { LaunchVisitSheet } from "./LaunchVisitSheet";
 import { LeadDetailSheet } from "@/components/leads/LeadDetailSheet";
@@ -134,6 +137,8 @@ export function AgendaTab({
     (externalSetAddVisitOpen || setInternalAddVisitOpen)(open);
   };
 
+  const [processingVisitId, setProcessingVisitId] = useState<string | null>(null);
+
   const [prospeccaoSheetOpen, setProspeccaoSheetOpen] = useState(false);
   const [prospeccaoData, setProspeccaoData] = useState<{
     reminderId: string;
@@ -205,12 +210,101 @@ export function AgendaTab({
     return visits.map((visit) => visit.date);
   }, [visits]);
 
-  const cancelVisit = async (id: string) => {
-    const result = await updateReminderStatus(id, "cancelado");
-    if (result.success) {
-      toast.success("Visita cancelada");
-    } else {
+  const reverseGeocode = async (lat: number, lng: number): Promise<string | null> => {
+    try {
+      const response = await api.get(`/geocode/reverse?lat=${lat}&lng=${lng}`);
+      const data = response.data;
+      return data.display_name || "Endereço não identificado";
+    } catch (error: any) {
+      const serverMsg = error.response?.data?.display_name || error.response?.data?.error;
+      return serverMsg ? `Erro: ${serverMsg}` : null;
+    }
+  };
+
+  const getFreshLocation = () => new Promise<GeolocationPosition | null>((resolve) => {
+    if (!navigator.geolocation) { resolve(null); return; }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => resolve(pos),
+      () => resolve(null),
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+  });
+
+  const confirmarVisita = async (visit: ScheduledVisit) => {
+    setProcessingVisitId(visit.id);
+    const tId = toast.loading("Capturando sua geolocalização exata...");
+    try {
+      const position = await getFreshLocation();
+      const lat = position?.coords.latitude ? String(position.coords.latitude) : undefined;
+      const lng = position?.coords.longitude ? String(position.coords.longitude) : undefined;
+
+      let enderecoVisita: string | null = null;
+      if (lat && lng) {
+        toast.info("📍 Localização capturada! Buscando endereço...", { id: tId });
+        enderecoVisita = await reverseGeocode(parseFloat(lat), parseFloat(lng));
+        if (enderecoVisita) {
+          toast.success(`Endereço: ${enderecoVisita.split(",")[0]}`, { id: tId, duration: 4000 });
+        } else {
+          toast.warning("Não foi possível converter as coordenadas em endereço.", { id: tId });
+        }
+      } else {
+        toast.error("GPS não disponível. Certifique-se de que a localização está ativa.", { id: tId });
+      }
+
+      const result = await updateReminderStatus(visit.id, "concluido");
+      if (!result.success) {
+        toast.error("Erro ao confirmar visita");
+        return;
+      }
+
+      if (visit.leadId) {
+        const funilTypeMap: Record<number, string> = { 1: "prospeccao", 2: "qualificacao", 3: "negociacao", 4: "precificacao", 5: "credenciamento" };
+        const visitType = funilTypeMap[visit.funilApp ?? 1] ?? "prospeccao";
+        await visitsService.createVisit({
+          lead_id: visit.leadId,
+          tipo: visitType,
+          status: "concluida",
+          lat,
+          lng,
+          endereco_visita: enderecoVisita,
+          data_visita: new Date().toISOString(),
+        });
+      }
+
+      toast.success("Visita confirmada!");
+    } catch (e) {
+      console.error("Erro ao confirmar visita:", e);
+      toast.error("Erro ao confirmar visita");
+    } finally {
+      setProcessingVisitId(null);
+    }
+  };
+
+  const cancelarVisita = async (visit: ScheduledVisit) => {
+    setProcessingVisitId(visit.id);
+    const tId = toast.loading("Capturando sua geolocalização exata...");
+    try {
+      const position = await getFreshLocation();
+      const lat = position?.coords.latitude;
+      const lng = position?.coords.longitude;
+
+      if (lat && lng) {
+        toast.info("📍 Localização capturada!", { id: tId, duration: 2000 });
+      } else {
+        toast.dismiss(tId);
+      }
+
+      const result = await updateReminderStatus(visit.id, "cancelado");
+      if (result.success) {
+        toast.success("Visita cancelada");
+      } else {
+        toast.error("Erro ao cancelar visita");
+      }
+    } catch (e) {
+      console.error("Erro ao cancelar visita:", e);
       toast.error("Erro ao cancelar visita");
+    } finally {
+      setProcessingVisitId(null);
     }
   };
 
@@ -554,37 +648,55 @@ export function AgendaTab({
                   {visit.status === "pending" && (() => {
                     const editAction = visit.hasLead ? getEditActionForFunil(visit.funilApp) : null;
                     return (
-                      <div className="flex gap-2 mt-3 pt-3 border-t border-border/50">
-                        {/* Botão Editar — reflete estado atual do lead */}
-                        {editAction && (
+                      <div className="flex flex-col gap-2 mt-3 pt-3 border-t border-border/50">
+                        {/* Linha 1: Editar + Avançar */}
+                        <div className="flex gap-2">
+                          {editAction && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="flex-1 h-9"
+                              onClick={() => openRetorno(visit, editAction)}
+                              disabled={processingVisitId === visit.id}
+                            >
+                              <Pencil className="h-4 w-4 mr-1" />
+                              Editar
+                            </Button>
+                          )}
+                          <Button
+                            size="sm"
+                            variant={actionConfig.variant}
+                            className="flex-1 h-9"
+                            onClick={() => handleActionClick(visit, actionConfig.type)}
+                            disabled={processingVisitId === visit.id}
+                          >
+                            <Icon className="h-4 w-4 mr-1" />
+                            {actionConfig.label}
+                          </Button>
+                        </div>
+                        {/* Linha 2: Confirmar + Cancelar */}
+                        <div className="flex gap-2">
                           <Button
                             size="sm"
                             variant="outline"
-                            className="flex-1 h-9"
-                            onClick={() => openRetorno(visit, editAction)}
+                            className="flex-1 h-9 text-green-700 border-green-300 hover:bg-green-50"
+                            onClick={() => confirmarVisita(visit)}
+                            disabled={processingVisitId === visit.id}
                           >
-                            <Pencil className="h-4 w-4 mr-1" />
-                            Editar
+                            <Check className="h-4 w-4 mr-1" />
+                            {processingVisitId === visit.id ? "Processando..." : "Confirmar Visita"}
                           </Button>
-                        )}
-                        {/* Botão Avançar — próxima etapa ou ação principal */}
-                        <Button
-                          size="sm"
-                          variant={actionConfig.variant}
-                          className="flex-1 h-9"
-                          onClick={() => handleActionClick(visit, actionConfig.type)}
-                        >
-                          <Icon className="h-4 w-4 mr-1" />
-                          {actionConfig.label}
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-9 px-2"
-                          onClick={() => cancelVisit(visit.id)}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="flex-1 h-9 text-destructive border-destructive/30 hover:bg-destructive/5"
+                            onClick={() => cancelarVisita(visit)}
+                            disabled={processingVisitId === visit.id}
+                          >
+                            <XCircle className="h-4 w-4 mr-1" />
+                            Cancelar Visita
+                          </Button>
+                        </div>
                       </div>
                     );
                   })()}
@@ -617,6 +729,7 @@ export function AgendaTab({
         initialType="novo-cliente"
         reminderId={prospeccaoData?.reminderId}
         onLeadSavedWithId={handleLeadSaved}
+        registerVisitInHistory
       />
 
       {/* Retorno Sheet - for existing leads */}
@@ -629,6 +742,7 @@ export function AgendaTab({
         directAction={retornoData?.visitType}
         reminderId={retornoData?.reminderId}
         onLeadSaved={handleRetornoCompleted}
+        registerVisitInHistory
       />
 
       {/* Profile Sheet - for pending credenciamento */}
