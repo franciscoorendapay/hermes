@@ -42,6 +42,12 @@ class OrdemLogistica
     #[ORM\Column(type: Types::DATETIME_IMMUTABLE, nullable: true)]
     private ?\DateTimeImmutable $updatedAt = null;
 
+    #[ORM\Column(type: Types::DATETIME_IMMUTABLE, nullable: true)]
+    private ?\DateTimeImmutable $dataAtendimento = null;
+
+    #[ORM\Column(nullable: true)]
+    private ?bool $entregueNoPrazo = null;
+
     public function __construct()
     {
         $this->id = Uuid::v4()->toRfc4122();
@@ -76,4 +82,10 @@ class OrdemLogistica
 
     public function getCreatedAt(): ?\DateTimeImmutable { return $this->createdAt; }
     public function getUpdatedAt(): ?\DateTimeImmutable { return $this->updatedAt; }
+
+    public function getDataAtendimento(): ?\DateTimeImmutable { return $this->dataAtendimento; }
+    public function setDataAtendimento(?\DateTimeImmutable $dataAtendimento): static { $this->dataAtendimento = $dataAtendimento; return $this; }
+
+    public function isEntregueNoPrazo(): ?bool { return $this->entregueNoPrazo; }
+    public function setEntregueNoPrazo(?bool $entregueNoPrazo): static { $this->entregueNoPrazo = $entregueNoPrazo; return $this; }
 }

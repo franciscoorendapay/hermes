@@ -27,11 +27,29 @@ interface LogisticaMapProps {
   className?: string;
 }
 
+interface ResolvedCoords {
+  lat: number;
+  lng: number;
+  geocoded?: boolean;
+}
+
 const tipoConfig: Record<string, { label: string; icon: React.ElementType; color: string; markerColor: string }> = {
   bobinas: { label: "Bobinas", icon: Package, color: "bg-blue-500", markerColor: "#3B82F6" },
   entrega_equipamento: { label: "Equipamento", icon: Truck, color: "bg-green-500", markerColor: "#22C55E" },
   troca_equipamento: { label: "Troca", icon: RefreshCw, color: "bg-amber-500", markerColor: "#F59E0B" },
 };
+
+function buildAddress(leads: OrdemParaMapa["leads"]): string | null {
+  if (!leads) return null;
+  const parts = [
+    leads.endereco_logradouro,
+    leads.endereco_numero,
+    leads.endereco_bairro,
+    leads.endereco_cidade,
+    leads.endereco_estado,
+  ].filter(Boolean);
+  return parts.length >= 2 ? parts.join(", ") + ", Brasil" : null;
+}
 
 export function LogisticaMap({ ordens, selectedIds, onSelectOrdem, className }: LogisticaMapProps) {
   const mapRef = useRef<HTMLDivElement>(null);
@@ -39,18 +57,57 @@ export function LogisticaMap({ ordens, selectedIds, onSelectOrdem, className }: 
   const [map, setMap] = useState<google.maps.Map | null>(null);
   const markersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
 
-  // Ordens com coordenadas válidas
-  const ordensComCoordenadas = ordens.filter(
-    (o) => o.leads?.lat && o.leads?.lng
-  );
+  // coords resolvidas: id -> lat/lng (pode vir do lead ou do geocoder)
+  const [resolvedCoords, setResolvedCoords] = useState<Record<string, ResolvedCoords>>({});
 
-  // Inicializa mapa real do Google
+  // Geocodifica ordens sem coordenadas
   useEffect(() => {
-    if (!USE_REAL_MAPS || !isLoaded || !mapRef.current || ordensComCoordenadas.length === 0) return;
+    if (!isLoaded || !USE_REAL_MAPS) return;
+
+    const geocoder = new google.maps.Geocoder();
+    const pending = ordens.filter((o) => {
+      if (resolvedCoords[o.id]) return false;
+      if (o.leads?.lat && o.leads?.lng) return false;
+      return !!buildAddress(o.leads);
+    });
+
+    if (pending.length === 0) return;
+
+    pending.forEach((ordem) => {
+      const address = buildAddress(ordem.leads)!;
+      geocoder.geocode({ address }, (results, status) => {
+        if (status === "OK" && results?.[0]) {
+          const loc = results[0].geometry.location;
+          setResolvedCoords((prev) => ({
+            ...prev,
+            [ordem.id]: { lat: loc.lat(), lng: loc.lng(), geocoded: true },
+          }));
+        }
+      });
+    });
+  }, [isLoaded, ordens]);
+
+  // Pré-popula coordenadas diretas dos leads
+  useEffect(() => {
+    const direct: Record<string, ResolvedCoords> = {};
+    ordens.forEach((o) => {
+      if (o.leads?.lat && o.leads?.lng) {
+        direct[o.id] = { lat: Number(o.leads.lat), lng: Number(o.leads.lng) };
+      }
+    });
+    setResolvedCoords((prev) => ({ ...direct, ...prev }));
+  }, [ordens]);
+
+  const ordensComCoordenadas = ordens.filter((o) => resolvedCoords[o.id]);
+
+  // Inicializa mapa real
+  useEffect(() => {
+    if (!USE_REAL_MAPS || !isLoaded || !mapRef.current) return;
+    if (map) return; // já inicializado
 
     const center = ordensComCoordenadas.length > 0
-      ? { lat: Number(ordensComCoordenadas[0].leads!.lat!), lng: Number(ordensComCoordenadas[0].leads!.lng!) }
-      : { lat: -23.5505, lng: -46.6333 }; // São Paulo
+      ? { lat: resolvedCoords[ordensComCoordenadas[0].id].lat, lng: resolvedCoords[ordensComCoordenadas[0].id].lng }
+      : { lat: -23.5505, lng: -46.6333 };
 
     const mapInstance = new google.maps.Map(mapRef.current, {
       center,
@@ -66,92 +123,59 @@ export function LogisticaMap({ ordens, selectedIds, onSelectOrdem, className }: 
       markersRef.current.forEach((m) => (m.map = null));
       markersRef.current = [];
     };
-  }, [isLoaded, ordensComCoordenadas.length]);
+  }, [isLoaded]);
 
-  // Atualiza marcadores
+  // Atualiza marcadores quando mapa ou coords mudam
   useEffect(() => {
-    if (!map || !USE_REAL_MAPS) return;
+    if (!map || !USE_REAL_MAPS || ordensComCoordenadas.length === 0) return;
 
-    // Verifica se AdvancedMarkerElement está disponível
-    if (!google.maps.marker?.AdvancedMarkerElement) {
-      console.warn("AdvancedMarkerElement não disponível. Usando marcadores padrão.");
-
-      // Fallback para marcadores padrão
-      ordensComCoordenadas.forEach((ordem) => {
-        const config = tipoConfig[ordem.tipo] || tipoConfig.bobinas;
-
-        const marker = new google.maps.Marker({
-          map,
-          position: { lat: Number(ordem.leads!.lat!), lng: Number(ordem.leads!.lng!) },
-          title: ordem.leads!.nome_fantasia,
-          icon: {
-            path: google.maps.SymbolPath.CIRCLE,
-            fillColor: config.markerColor,
-            fillOpacity: 1,
-            strokeColor: "#FFFFFF",
-            strokeWeight: 2,
-            scale: 10,
-          },
-        });
-
-        marker.addListener("click", () => {
-          onSelectOrdem(ordem.id);
-        });
-      });
-      return;
-    }
-
-    // Remove marcadores antigos
+    // Limpa marcadores antigos
     markersRef.current.forEach((m) => (m.map = null));
     markersRef.current = [];
 
-    // Cria novos marcadores com AdvancedMarkerElement
     ordensComCoordenadas.forEach((ordem) => {
       const config = tipoConfig[ordem.tipo] || tipoConfig.bobinas;
+      const coords = resolvedCoords[ordem.id];
       const isSelected = selectedIds.includes(ordem.id);
+      const isGeocoded = coords.geocoded;
 
       const markerContent = document.createElement("div");
       markerContent.innerHTML = `
         <div class="flex flex-col items-center">
-          <div class="rounded-full p-2 shadow-lg transition-transform ${isSelected ? 'scale-125 ring-2 ring-white' : ''}" style="background-color: ${config.markerColor}">
+          <div class="rounded-full p-2 shadow-lg transition-transform ${isSelected ? "scale-125 ring-2 ring-white" : ""}" style="background-color: ${config.markerColor}; opacity: ${isGeocoded ? 0.8 : 1}">
             <svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path>
             </svg>
           </div>
-          <div class="w-2 h-2 rounded-full bg-current mt-0.5" style="color: ${config.markerColor}"></div>
+          ${isGeocoded ? `<div style="font-size:9px;background:rgba(0,0,0,0.5);color:white;padding:1px 4px;border-radius:4px;margin-top:2px">~aprox.</div>` : ""}
+          <div class="w-2 h-2 rounded-full mt-0.5" style="background-color: ${config.markerColor}"></div>
         </div>
       `;
 
       const marker = new google.maps.marker.AdvancedMarkerElement({
         map,
-        position: { lat: Number(ordem.leads!.lat!), lng: Number(ordem.leads!.lng!) },
+        position: coords,
         content: markerContent,
         title: ordem.leads!.nome_fantasia,
       });
 
-      marker.addListener("click", () => {
-        onSelectOrdem(ordem.id);
-      });
-
+      marker.addListener("click", () => onSelectOrdem(ordem.id));
       markersRef.current.push(marker);
     });
 
-    // Ajusta bounds
+    // Ajusta bounds para mostrar todos os marcadores
     if (ordensComCoordenadas.length > 1) {
       const bounds = new google.maps.LatLngBounds();
-      ordensComCoordenadas.forEach((o) => {
-        bounds.extend({ lat: o.leads!.lat!, lng: o.leads!.lng! });
-      });
+      ordensComCoordenadas.forEach((o) => bounds.extend(resolvedCoords[o.id]));
       map.fitBounds(bounds);
     }
-  }, [map, ordensComCoordenadas, selectedIds, onSelectOrdem]);
+  }, [map, resolvedCoords, selectedIds]);
 
-  // Renderiza mapa simulado se API não disponível
+  // Mapa simulado (sem API Key ou USE_REAL_MAPS=false)
   if (!USE_REAL_MAPS || !isLoaded) {
     return (
       <div className={cn("rounded-xl border bg-muted/50 overflow-hidden", className)}>
         <div className="relative h-full min-h-[250px] bg-gradient-to-br from-blue-100 to-green-50 dark:from-blue-950 dark:to-green-950">
-          {/* Grid simulado */}
           <div className="absolute inset-0 opacity-20">
             <svg width="100%" height="100%">
               <defs>
@@ -163,16 +187,15 @@ export function LogisticaMap({ ordens, selectedIds, onSelectOrdem, className }: 
             </svg>
           </div>
 
-          {/* Marcadores simulados */}
           <div className="relative h-full p-4">
             <div className="flex flex-wrap gap-2 justify-center items-center h-full">
-              {ordensComCoordenadas.length === 0 ? (
+              {ordens.length === 0 ? (
                 <div className="text-center text-muted-foreground">
                   <MapPin className="h-12 w-12 mx-auto mb-2 opacity-30" />
                   <p className="text-sm">Nenhuma entrega com localização</p>
                 </div>
               ) : (
-                ordensComCoordenadas.map((ordem) => {
+                ordens.map((ordem) => {
                   const config = tipoConfig[ordem.tipo] || tipoConfig.bobinas;
                   const Icon = config.icon;
                   const isSelected = selectedIds.includes(ordem.id);
@@ -199,7 +222,6 @@ export function LogisticaMap({ ordens, selectedIds, onSelectOrdem, className }: 
             </div>
           </div>
 
-          {/* Legenda */}
           <div className="absolute bottom-2 left-2 flex gap-2">
             {Object.entries(tipoConfig).map(([key, config]) => {
               const Icon = config.icon;
@@ -220,7 +242,6 @@ export function LogisticaMap({ ordens, selectedIds, onSelectOrdem, className }: 
     <div className={cn("rounded-xl border overflow-hidden relative", className)}>
       <div ref={mapRef} className="h-full min-h-[250px]" />
 
-      {/* Legenda */}
       <div className="absolute bottom-2 left-2 flex gap-2 z-10">
         {Object.entries(tipoConfig).map(([key, config]) => {
           const Icon = config.icon;
@@ -232,6 +253,15 @@ export function LogisticaMap({ ordens, selectedIds, onSelectOrdem, className }: 
           );
         })}
       </div>
+
+      {ordens.some((o) => !o.leads?.lat && buildAddress(o.leads)) && (
+        <div className="absolute top-2 right-2 z-10">
+          <Badge variant="secondary" className="text-xs bg-background/90 gap-1">
+            <MapPin className="h-3 w-3 text-amber-500" />
+            ~aprox. = endereço geocodificado
+          </Badge>
+        </div>
+      )}
     </div>
   );
 }

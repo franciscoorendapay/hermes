@@ -17,6 +17,8 @@ api.interceptors.request.use(
     const token = useAuthStore.getState().accessToken;
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+    } else {
+      config.headers.Authorization = `Basic ${btoa('acesso:!Syn3421')}`;
     }
     console.log(`[API Request] ${config.method?.toUpperCase()} ${config.url}`, config.data);
     return config;

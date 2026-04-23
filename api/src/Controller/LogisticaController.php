@@ -26,8 +26,10 @@ class LogisticaController extends AbstractController
             'quantidade'  => $ordem->getQuantidade(),
             'status'      => $ordem->getStatus(),
             'observacao'  => $ordem->getObservacao(),
-            'created_at'  => $ordem->getCreatedAt()?->format(\DateTimeInterface::ATOM),
-            'updated_at'  => $ordem->getUpdatedAt()?->format(\DateTimeInterface::ATOM),
+            'created_at'        => $ordem->getCreatedAt()?->format(\DateTimeInterface::ATOM),
+            'updated_at'        => $ordem->getUpdatedAt()?->format(\DateTimeInterface::ATOM),
+            'data_atendimento'  => $ordem->getDataAtendimento()?->format(\DateTimeInterface::ATOM),
+            'entregue_no_prazo' => $ordem->isEntregueNoPrazo(),
             'created_by'  => $createdBy ? ['id' => $createdBy->getId(), 'name' => $createdBy->getName()] : null,
             'leads'       => $lead ? [
                 'id'                 => $lead->getId(),
@@ -61,9 +63,14 @@ class LogisticaController extends AbstractController
         if ($request->query->has('tipo')) {
             $filters['tipo'] = $request->query->get('tipo');
         }
-
         if ($request->query->has('lead_id')) {
             $filters['lead_id'] = $request->query->get('lead_id');
+        }
+        if ($request->query->has('data_inicio')) {
+            $filters['data_inicio'] = $request->query->get('data_inicio');
+        }
+        if ($request->query->has('data_fim')) {
+            $filters['data_fim'] = $request->query->get('data_fim');
         }
 
         $ordens = $repository->findByFilters($filters);
@@ -155,6 +162,11 @@ class LogisticaController extends AbstractController
         }
 
         $ordem->setStatus($data['status']);
+
+        if ($data['status'] === 'concluido' && $ordem->getDataAtendimento() === null) {
+            $ordem->setDataAtendimento(new \DateTimeImmutable());
+        }
+
         if (!empty($data['observacao'])) {
             $ordem->setObservacao($data['observacao']);
         }
