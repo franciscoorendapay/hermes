@@ -32,6 +32,7 @@ class AppSyncLeadsCommand extends Command
         $this
             ->addOption('email', null, InputOption::VALUE_OPTIONAL, 'Sync only a specific email')
             ->addOption('limit', null, InputOption::VALUE_OPTIONAL, 'Limit the number of leads to sync', '0')
+            ->addOption('missing-token', null, InputOption::VALUE_NONE, 'Sync only leads with api_id but no api_token')
         ;
     }
 
@@ -40,6 +41,7 @@ class AppSyncLeadsCommand extends Command
         $io = new SymfonyStyle($input, $output);
         $email = $input->getOption('email');
         $limit = (int) $input->getOption('limit');
+        $missingToken = $input->getOption('missing-token');
 
         $queryBuilder = $this->leadRepository->createQueryBuilder('l')
             ->where('l.email IS NOT NULL');
@@ -47,6 +49,12 @@ class AppSyncLeadsCommand extends Command
         if ($email) {
             $queryBuilder->andWhere('l.email = :email')
                 ->setParameter('email', $email);
+        }
+
+        if ($missingToken) {
+            $queryBuilder
+                ->andWhere('l.apiId IS NOT NULL')
+                ->andWhere('l.apiToken IS NULL');
         }
 
         if ($limit > 0) {
@@ -82,49 +90,54 @@ class AppSyncLeadsCommand extends Command
                 }
 
                 $empresa = $data['dados'] ?? [];
-                
-                // Update basic Orenda IDs
-                if (isset($empresa['cod_empresa'])) {
-                    $lead->setApiId($empresa['cod_empresa']);
-                }
-                
-                if (isset($empresa['TOKEN'])) {
-                    $lead->setApiToken($empresa['TOKEN']);
-                }
 
-                // Update Accreditation Date
-                if (isset($empresa['data_registro'])) {
-                    try {
-                        $date = new \DateTimeImmutable($empresa['data_registro']);
-                        $lead->setAccreditationDate($date);
-                    } catch (\Exception $e) {
-                        $io->error('Invalid date format: ' . $empresa['data_registro']);
+                if ($missingToken) {
+                    // Modo --missing-token: atualiza apenas o token, sem alterar nenhum outro campo
+                    if (isset($empresa['TOKEN'])) {
+                        $lead->setApiToken($empresa['TOKEN']);
+                    } else {
+                        $io->note(sprintf('Token não encontrado na Orenda para: %s', $lead->getEmail()));
+                        continue;
                     }
-                }
+                } else {
+                    // Sync completo
+                    if (isset($empresa['cod_empresa'])) {
+                        $lead->setApiId($empresa['cod_empresa']);
+                    }
 
-                // If found in Orenda, force to funnel 5 (Accredited)
-                $lead->setAppFunnel(5);
-                $lead->setAccreditation(1);
+                    if (isset($empresa['TOKEN'])) {
+                        $lead->setApiToken($empresa['TOKEN']);
+                    }
 
-                // Update other info (force update for tokens and document as requested)
-                if (isset($empresa['cpf_cnpj'])) {
-                    $lead->setDocument($empresa['cpf_cnpj']);
+                    if (isset($empresa['data_registro'])) {
+                        try {
+                            $date = new \DateTimeImmutable($empresa['data_registro']);
+                            $lead->setAccreditationDate($date);
+                        } catch (\Exception $e) {
+                            $io->error('Invalid date format: ' . $empresa['data_registro']);
+                        }
+                    }
+
+                    $lead->setAppFunnel(5);
+                    $lead->setAccreditation(1);
+
+                    if (isset($empresa['cpf_cnpj'])) {
+                        $lead->setDocument($empresa['cpf_cnpj']);
+                    }
+
+                    if (!$lead->getCompanyName() && isset($empresa['nome'])) {
+                        $lead->setCompanyName($empresa['nome']);
+                    }
+                    if (!$lead->getPhone() && isset($empresa['telefone'])) {
+                        $lead->setPhone($empresa['telefone']);
+                    }
+
+                    if (!$lead->getZipCode() && isset($empresa['cep'])) $lead->setZipCode($empresa['cep']);
+                    if (!$lead->getCity() && isset($empresa['cidade'])) $lead->setCity($empresa['cidade']);
+                    if (!$lead->getState() && isset($empresa['estado'])) $lead->setState($empresa['estado']);
+                    if (!$lead->getNeighborhood() && isset($empresa['bairro'])) $lead->setNeighborhood($empresa['bairro']);
+                    if (!$lead->getNumber() && isset($empresa['numero'])) $lead->setNumber($empresa['numero']);
                 }
-                
-                // Update names and contact ONLY if empty (avoid overwriting custom names)
-                if (!$lead->getCompanyName() && isset($empresa['nome'])) {
-                    $lead->setCompanyName($empresa['nome']);
-                }
-                if (!$lead->getPhone() && isset($empresa['telefone'])) {
-                    $lead->setPhone($empresa['telefone']);
-                }
-                
-                // Address info (ONLY if empty)
-                if (!$lead->getZipCode() && isset($empresa['cep'])) $lead->setZipCode($empresa['cep']);
-                if (!$lead->getCity() && isset($empresa['cidade'])) $lead->setCity($empresa['cidade']);
-                if (!$lead->getState() && isset($empresa['estado'])) $lead->setState($empresa['estado']);
-                if (!$lead->getNeighborhood() && isset($empresa['bairro'])) $lead->setNeighborhood($empresa['bairro']);
-                if (!$lead->getNumber() && isset($empresa['numero'])) $lead->setNumber($empresa['numero']);
 
                 $updated++;
                 
