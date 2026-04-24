@@ -49,7 +49,7 @@ class AppSyncLeadsCommand extends Command
             $queryBuilder
                 ->where('l.apiId IS NOT NULL')
                 ->andWhere('l.apiToken IS NULL')
-                ->andWhere('l.document IS NOT NULL');
+                ->andWhere('l.email IS NOT NULL');
         } else {
             $queryBuilder->where('l.email IS NOT NULL');
         }
@@ -66,84 +66,51 @@ class AppSyncLeadsCommand extends Command
         $leads = $queryBuilder->getQuery()->getResult();
         $total = count($leads);
 
-        $io->title(sprintf('Syncing %d leads...', $total));
+        $io->title(\sprintf('Syncing %d leads...', $total));
         $updated = 0;
 
-        // Modo --missing-token: busca todas as empresas da Orenda de uma vez e cruza por CNPJ
+        // Modo --missing-token: busca token individualmente via obterEmpresa.php por email
         if ($missingToken) {
-            $io->text('Buscando todas as empresas da Orenda...');
-            $json = @file_get_contents('https://orendapay.com.br/dev04-producao/obterTodasEmpresas.php');
-            if (!$json) {
-                $io->error('Falha ao conectar com obterTodasEmpresas.php');
-                return Command::FAILURE;
-            }
-
-            $apiResponse = json_decode($json, true);
-            if (empty($apiResponse['sucesso']) || empty($apiResponse['dados'])) {
-                $io->error('Resposta inválida da Orenda.');
-                return Command::FAILURE;
-            }
-
-            // Debug: mostra campos disponíveis na primeira empresa
-            $primeiraEmpresa = $apiResponse['dados'][0] ?? [];
-            $io->text('Campos disponíveis: ' . implode(', ', \array_keys($primeiraEmpresa)));
-            $io->text('Valores da 1ª empresa: ' . json_encode($primeiraEmpresa, JSON_UNESCAPED_UNICODE));
-
-            // Monta mapa CNPJ (só dígitos) => ['token' => ..., 'email' => ...]
-            $orendaMap = [];
-            foreach ($apiResponse['dados'] as $empresa) {
-                // Tenta múltiplos campos possíveis para o documento
-                $rawDoc = $empresa['cpf_cnpj'] ?? $empresa['cnpj'] ?? $empresa['cpf'] ?? $empresa['documento'] ?? $empresa['document'] ?? '';
-                $doc = preg_replace('/\D/', '', (string) $rawDoc);
-                $token = $empresa['TOKEN'] ?? $empresa['token'] ?? $empresa['api_token'] ?? null;
-                if ($doc && $token) {
-                    $orendaMap[$doc] = [
-                        'token' => $token,
-                        'email' => $empresa['email'] ?? $empresa['business_email'] ?? null,
-                    ];
-                }
-            }
-
-            $io->text(sprintf('%d empresas carregadas da Orenda.', count($orendaMap)));
-
-            $sampleKeys = \array_slice(\array_keys($orendaMap), 0, 3);
-            $io->text('Amostra de docs no mapa: ' . implode(', ', $sampleKeys));
-
             foreach ($leads as $i => $lead) {
-                $rawDoc = (string) $lead->getDocument();
-                $doc = preg_replace('/\D/', '', $rawDoc);
-                $io->text(sprintf('[%d/%d] doc_raw="%s" doc_clean="%s"', $i + 1, $total, $rawDoc, $doc));
+                $io->text(\sprintf('[%d/%d] %s', $i + 1, $total, $lead->getEmail()));
 
-                if (!isset($orendaMap[$doc])) {
-                    // Tenta match parcial para diagnóstico
-                    $partialMatch = null;
-                    foreach (array_keys($orendaMap) as $k) {
-                        if (str_contains($k, $doc) || str_contains($doc, $k)) {
-                            $partialMatch = $k;
-                            break;
-                        }
+                try {
+                    $response = $this->httpClient->request('GET', 'https://orendapay.com.br/dev04-producao/obterEmpresa.php', [
+                        'query' => ['email' => $lead->getEmail()]
+                    ]);
+
+                    if ($response->getStatusCode() !== 200) {
+                        $io->warning(\sprintf('HTTP %d para %s', $response->getStatusCode(), $lead->getEmail()));
+                        continue;
                     }
-                    $io->note(sprintf(
-                        'Não encontrado: "%s" | match_parcial: %s',
-                        $doc,
-                        $partialMatch ?? 'nenhum'
-                    ));
-                    continue;
-                }
 
-                $lead->setApiToken($orendaMap[$doc]['token']);
-                if (!empty($orendaMap[$doc]['email'])) {
-                    $lead->setEmail($orendaMap[$doc]['email']);
-                }
-                $updated++;
+                    $data = $response->toArray();
 
-                if (($i + 1) % 20 === 0) {
-                    $this->entityManager->flush();
+                    if (!($data['sucesso'] ?? false)) {
+                        $io->note(\sprintf('Não encontrado na Orenda: %s', $lead->getEmail()));
+                        continue;
+                    }
+
+                    $empresa = $data['dados'] ?? [];
+
+                    if (empty($empresa['TOKEN'])) {
+                        $io->note(\sprintf('Token ausente na resposta para: %s', $lead->getEmail()));
+                        continue;
+                    }
+
+                    $lead->setApiToken($empresa['TOKEN']);
+                    $updated++;
+
+                    if (($i + 1) % 20 === 0) {
+                        $this->entityManager->flush();
+                    }
+                } catch (\Exception $e) {
+                    $io->error(\sprintf('Erro em %s: %s', $lead->getEmail(), $e->getMessage()));
                 }
             }
 
             $this->entityManager->flush();
-            $io->success(sprintf('Concluído. %d leads atualizados.', $updated));
+            $io->success(\sprintf('Concluído. %d leads atualizados.', $updated));
             return Command::SUCCESS;
         }
 
@@ -152,7 +119,7 @@ class AppSyncLeadsCommand extends Command
         foreach ($leads as $lead) {
             $progress++;
             $identifier = $lead->getEmail();
-            $io->text(sprintf('[%d/%d] Syncing: %s', $progress, $total, $identifier));
+            $io->text(\sprintf('[%d/%d] Syncing: %s', $progress, $total, $identifier));
 
             try {
                 $response = $this->httpClient->request('GET', 'https://orendapay.com.br/dev04-producao/obterEmpresa.php', [
@@ -160,14 +127,14 @@ class AppSyncLeadsCommand extends Command
                 ]);
 
                 if ($response->getStatusCode() !== 200) {
-                    $io->warning(sprintf('Error API status for %s: %d', $identifier, $response->getStatusCode()));
+                    $io->warning(\sprintf('Error API status for %s: %d', $identifier, $response->getStatusCode()));
                     continue;
                 }
 
                 $data = $response->toArray();
 
                 if (!($data['sucesso'] ?? false)) {
-                    $io->note(sprintf('Lead not found in Orenda: %s', $identifier));
+                    $io->note(\sprintf('Lead not found in Orenda: %s', $identifier));
                     continue;
                 }
 
@@ -221,12 +188,12 @@ class AppSyncLeadsCommand extends Command
                 }
 
             } catch (\Exception $e) {
-                $io->error(sprintf('Failed to sync %s: %s', $lead->getEmail(), $e->getMessage()));
+                $io->error(\sprintf('Failed to sync %s: %s', $lead->getEmail(), $e->getMessage()));
             }
         }
 
         $this->entityManager->flush();
-        $io->success(sprintf('Finished. %d leads updated.', $updated));
+        $io->success(\sprintf('Finished. %d leads updated.', $updated));
 
         return Command::SUCCESS;
     }
