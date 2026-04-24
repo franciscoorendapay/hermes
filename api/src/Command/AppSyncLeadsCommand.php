@@ -49,7 +49,7 @@ class AppSyncLeadsCommand extends Command
             $queryBuilder
                 ->where('l.apiId IS NOT NULL')
                 ->andWhere('l.apiToken IS NULL')
-                ->andWhere('l.email IS NOT NULL');
+                ->andWhere('l.document IS NOT NULL');
         } else {
             $queryBuilder->where('l.email IS NOT NULL');
         }
