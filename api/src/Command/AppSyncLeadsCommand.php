@@ -84,11 +84,18 @@ class AppSyncLeadsCommand extends Command
                 return Command::FAILURE;
             }
 
+            // Debug: mostra campos disponíveis na primeira empresa
+            $primeiraEmpresa = $apiResponse['dados'][0] ?? [];
+            $io->text('Campos disponíveis: ' . implode(', ', \array_keys($primeiraEmpresa)));
+            $io->text('Valores da 1ª empresa: ' . json_encode($primeiraEmpresa, JSON_UNESCAPED_UNICODE));
+
             // Monta mapa CNPJ (só dígitos) => ['token' => ..., 'email' => ...]
             $orendaMap = [];
             foreach ($apiResponse['dados'] as $empresa) {
-                $doc = preg_replace('/\D/', '', (string)($empresa['cpf_cnpj'] ?? ''));
-                $token = $empresa['TOKEN'] ?? null;
+                // Tenta múltiplos campos possíveis para o documento
+                $rawDoc = $empresa['cpf_cnpj'] ?? $empresa['cnpj'] ?? $empresa['cpf'] ?? $empresa['documento'] ?? $empresa['document'] ?? '';
+                $doc = preg_replace('/\D/', '', (string) $rawDoc);
+                $token = $empresa['TOKEN'] ?? $empresa['token'] ?? $empresa['api_token'] ?? null;
                 if ($doc && $token) {
                     $orendaMap[$doc] = [
                         'token' => $token,
@@ -99,9 +106,8 @@ class AppSyncLeadsCommand extends Command
 
             $io->text(sprintf('%d empresas carregadas da Orenda.', count($orendaMap)));
 
-            // Debug: mostra primeiros 3 docs do mapa para verificar formato
             $sampleKeys = \array_slice(\array_keys($orendaMap), 0, 3);
-            $io->text('Amostra de docs na Orenda: ' . implode(', ', $sampleKeys));
+            $io->text('Amostra de docs no mapa: ' . implode(', ', $sampleKeys));
 
             foreach ($leads as $i => $lead) {
                 $rawDoc = (string) $lead->getDocument();
