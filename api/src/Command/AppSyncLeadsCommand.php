@@ -43,18 +43,20 @@ class AppSyncLeadsCommand extends Command
         $limit = (int) $input->getOption('limit');
         $missingToken = $input->getOption('missing-token');
 
-        $queryBuilder = $this->leadRepository->createQueryBuilder('l')
-            ->where('l.email IS NOT NULL');
+        $queryBuilder = $this->leadRepository->createQueryBuilder('l');
+
+        if ($missingToken) {
+            $queryBuilder
+                ->where('l.apiId IS NOT NULL')
+                ->andWhere('l.apiToken IS NULL')
+                ->andWhere('l.document IS NOT NULL');
+        } else {
+            $queryBuilder->where('l.email IS NOT NULL');
+        }
 
         if ($email) {
             $queryBuilder->andWhere('l.email = :email')
                 ->setParameter('email', $email);
-        }
-
-        if ($missingToken) {
-            $queryBuilder
-                ->andWhere('l.apiId IS NOT NULL')
-                ->andWhere('l.apiToken IS NULL');
         }
 
         if ($limit > 0) {
@@ -70,22 +72,27 @@ class AppSyncLeadsCommand extends Command
 
         foreach ($leads as $lead) {
             $progress++;
-            $io->text(sprintf('[%d/%d] Syncing: %s', $progress, $total, $lead->getEmail()));
+            $identifier = $missingToken ? $lead->getDocument() : $lead->getEmail();
+            $io->text(sprintf('[%d/%d] Syncing: %s', $progress, $total, $identifier));
 
             try {
+                $query = $missingToken
+                    ? ['cpf_cnpj' => $lead->getDocument()]
+                    : ['email' => $lead->getEmail()];
+
                 $response = $this->httpClient->request('GET', 'https://orendapay.com.br/dev04-producao/obterEmpresa.php', [
-                    'query' => ['email' => $lead->getEmail()]
+                    'query' => $query
                 ]);
 
                 if ($response->getStatusCode() !== 200) {
-                    $io->warning(sprintf('Error API status for %s: %d', $lead->getEmail(), $response->getStatusCode()));
+                    $io->warning(sprintf('Error API status for %s: %d', $identifier, $response->getStatusCode()));
                     continue;
                 }
 
                 $data = $response->toArray();
 
                 if (!($data['sucesso'] ?? false)) {
-                    $io->note(sprintf('Lead not found in Orenda: %s', $lead->getEmail()));
+                    $io->note(sprintf('Lead not found in Orenda: %s', $identifier));
                     continue;
                 }
 
@@ -96,7 +103,7 @@ class AppSyncLeadsCommand extends Command
                     if (isset($empresa['TOKEN'])) {
                         $lead->setApiToken($empresa['TOKEN']);
                     } else {
-                        $io->note(sprintf('Token não encontrado na Orenda para: %s', $lead->getEmail()));
+                        $io->note(sprintf('Token não encontrado na Orenda para: %s', $identifier));
                         continue;
                     }
                 } else {
