@@ -69,32 +69,33 @@ class AppSyncLeadsCommand extends Command
         $io->title(\sprintf('Syncing %d leads...', $total));
         $updated = 0;
 
-        // Modo --missing-token: busca token individualmente via obterEmpresa.php por email
+        // Modo --missing-token: busca token individualmente via obterEmpresa.php por CPF/CNPJ
         if ($missingToken) {
             foreach ($leads as $i => $lead) {
-                $io->text(\sprintf('[%d/%d] %s', $i + 1, $total, $lead->getEmail()));
+                $doc = preg_replace('/\D/', '', (string) $lead->getDocument());
+                $io->text(\sprintf('[%d/%d] %s', $i + 1, $total, $doc));
 
                 try {
                     $response = $this->httpClient->request('GET', 'https://orendapay.com.br/dev04-producao/obterEmpresa.php', [
-                        'query' => ['email' => $lead->getEmail()]
+                        'query' => ['cpf_cnpj' => $doc]
                     ]);
 
                     if ($response->getStatusCode() !== 200) {
-                        $io->warning(\sprintf('HTTP %d para %s', $response->getStatusCode(), $lead->getEmail()));
+                        $io->warning(\sprintf('HTTP %d para %s', $response->getStatusCode(), $doc));
                         continue;
                     }
 
                     $data = $response->toArray();
 
                     if (!($data['sucesso'] ?? false)) {
-                        $io->note(\sprintf('Não encontrado na Orenda: %s', $lead->getEmail()));
+                        $io->note(\sprintf('Não encontrado na Orenda: %s', $doc));
                         continue;
                     }
 
                     $empresa = $data['dados'] ?? [];
 
                     if (empty($empresa['TOKEN'])) {
-                        $io->note(\sprintf('Token ausente na resposta para: %s', $lead->getEmail()));
+                        $io->note(\sprintf('Token ausente na resposta para: %s', $doc));
                         continue;
                     }
 
@@ -105,7 +106,7 @@ class AppSyncLeadsCommand extends Command
                         $this->entityManager->flush();
                     }
                 } catch (\Exception $e) {
-                    $io->error(\sprintf('Erro em %s: %s', $lead->getEmail(), $e->getMessage()));
+                    $io->error(\sprintf('Erro em %s: %s', $doc, $e->getMessage()));
                 }
             }
 
