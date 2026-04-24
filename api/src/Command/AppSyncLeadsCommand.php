@@ -67,22 +67,73 @@ class AppSyncLeadsCommand extends Command
         $total = count($leads);
 
         $io->title(sprintf('Syncing %d leads...', $total));
-        $progress = 0;
         $updated = 0;
+
+        // Modo --missing-token: busca todas as empresas da Orenda de uma vez e cruza por CNPJ
+        if ($missingToken) {
+            $io->text('Buscando todas as empresas da Orenda...');
+            $json = @file_get_contents('https://orendapay.com.br/dev04-producao/obterTodasEmpresas.php');
+            if (!$json) {
+                $io->error('Falha ao conectar com obterTodasEmpresas.php');
+                return Command::FAILURE;
+            }
+
+            $apiResponse = json_decode($json, true);
+            if (empty($apiResponse['sucesso']) || empty($apiResponse['dados'])) {
+                $io->error('Resposta inválida da Orenda.');
+                return Command::FAILURE;
+            }
+
+            // Monta mapa CNPJ (só dígitos) => ['token' => ..., 'email' => ...]
+            $orendaMap = [];
+            foreach ($apiResponse['dados'] as $empresa) {
+                $doc = preg_replace('/\D/', '', (string)($empresa['cpf_cnpj'] ?? ''));
+                $token = $empresa['TOKEN'] ?? null;
+                if ($doc && $token) {
+                    $orendaMap[$doc] = [
+                        'token' => $token,
+                        'email' => $empresa['email'] ?? $empresa['business_email'] ?? null,
+                    ];
+                }
+            }
+
+            $io->text(sprintf('%d empresas carregadas da Orenda.', count($orendaMap)));
+
+            foreach ($leads as $i => $lead) {
+                $doc = preg_replace('/\D/', '', (string) $lead->getDocument());
+                $io->text(sprintf('[%d/%d] %s', $i + 1, $total, $doc));
+
+                if (!isset($orendaMap[$doc])) {
+                    $io->note(sprintf('Não encontrado na Orenda: %s', $doc));
+                    continue;
+                }
+
+                $lead->setApiToken($orendaMap[$doc]['token']);
+                if (!empty($orendaMap[$doc]['email'])) {
+                    $lead->setEmail($orendaMap[$doc]['email']);
+                }
+                $updated++;
+
+                if (($i + 1) % 20 === 0) {
+                    $this->entityManager->flush();
+                }
+            }
+
+            $this->entityManager->flush();
+            $io->success(sprintf('Concluído. %d leads atualizados.', $updated));
+            return Command::SUCCESS;
+        }
+
+        $progress = 0;
 
         foreach ($leads as $lead) {
             $progress++;
-            $document = preg_replace('/\D/', '', (string) $lead->getDocument());
-            $identifier = $missingToken ? $document : $lead->getEmail();
+            $identifier = $lead->getEmail();
             $io->text(sprintf('[%d/%d] Syncing: %s', $progress, $total, $identifier));
 
             try {
-                $query = $missingToken
-                    ? ['cpf_cnpj' => $document]
-                    : ['email' => $lead->getEmail()];
-
                 $response = $this->httpClient->request('GET', 'https://orendapay.com.br/dev04-producao/obterEmpresa.php', [
-                    'query' => $query
+                    'query' => ['email' => $lead->getEmail()]
                 ]);
 
                 if ($response->getStatusCode() !== 200) {
@@ -99,16 +150,8 @@ class AppSyncLeadsCommand extends Command
 
                 $empresa = $data['dados'] ?? [];
 
-                if ($missingToken) {
-                    // Modo --missing-token: atualiza apenas o token, sem alterar nenhum outro campo
-                    if (isset($empresa['TOKEN'])) {
-                        $lead->setApiToken($empresa['TOKEN']);
-                    } else {
-                        $io->note(sprintf('Token não encontrado na Orenda para: %s', $identifier));
-                        continue;
-                    }
-                } else {
-                    // Sync completo
+                // Sync completo
+                {
                     if (isset($empresa['cod_empresa'])) {
                         $lead->setApiId($empresa['cod_empresa']);
                     }
