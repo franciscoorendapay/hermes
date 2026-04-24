@@ -72,12 +72,13 @@ class AppSyncLeadsCommand extends Command
 
         foreach ($leads as $lead) {
             $progress++;
-            $identifier = $missingToken ? $lead->getDocument() : $lead->getEmail();
+            $document = preg_replace('/\D/', '', (string) $lead->getDocument());
+            $identifier = $missingToken ? $document : $lead->getEmail();
             $io->text(sprintf('[%d/%d] Syncing: %s', $progress, $total, $identifier));
 
             try {
                 $query = $missingToken
-                    ? ['cpf_cnpj' => $lead->getDocument()]
+                    ? ['cpf_cnpj' => $document]
                     : ['email' => $lead->getEmail()];
 
                 $response = $this->httpClient->request('GET', 'https://orendapay.com.br/dev04-producao/obterEmpresa.php', [
