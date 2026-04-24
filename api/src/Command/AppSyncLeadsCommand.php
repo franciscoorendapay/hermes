@@ -99,12 +99,29 @@ class AppSyncLeadsCommand extends Command
 
             $io->text(sprintf('%d empresas carregadas da Orenda.', count($orendaMap)));
 
+            // Debug: mostra primeiros 3 docs do mapa para verificar formato
+            $sampleKeys = \array_slice(\array_keys($orendaMap), 0, 3);
+            $io->text('Amostra de docs na Orenda: ' . implode(', ', $sampleKeys));
+
             foreach ($leads as $i => $lead) {
-                $doc = preg_replace('/\D/', '', (string) $lead->getDocument());
-                $io->text(sprintf('[%d/%d] %s', $i + 1, $total, $doc));
+                $rawDoc = (string) $lead->getDocument();
+                $doc = preg_replace('/\D/', '', $rawDoc);
+                $io->text(sprintf('[%d/%d] doc_raw="%s" doc_clean="%s"', $i + 1, $total, $rawDoc, $doc));
 
                 if (!isset($orendaMap[$doc])) {
-                    $io->note(sprintf('Não encontrado na Orenda: %s', $doc));
+                    // Tenta match parcial para diagnóstico
+                    $partialMatch = null;
+                    foreach (array_keys($orendaMap) as $k) {
+                        if (str_contains($k, $doc) || str_contains($doc, $k)) {
+                            $partialMatch = $k;
+                            break;
+                        }
+                    }
+                    $io->note(sprintf(
+                        'Não encontrado: "%s" | match_parcial: %s',
+                        $doc,
+                        $partialMatch ?? 'nenhum'
+                    ));
                     continue;
                 }
 
