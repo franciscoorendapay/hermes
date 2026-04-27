@@ -34,6 +34,15 @@ export function PlacesSearch({ onPlaceSelect, placeholder = "Buscar estabelecime
 
   // Create a static session token per mount or refresh
   const [sessionToken] = useState(() => Math.random().toString(36).substring(2));
+  const abortRef = useRef<AbortController | null>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      if (abortRef.current) abortRef.current.abort();
+    };
+  }, []);
 
   const extractAddressComponents = useCallback((components: any[] | undefined) => {
     if (!components) return undefined;
@@ -57,18 +66,15 @@ export function PlacesSearch({ onPlaceSelect, placeholder = "Buscar estabelecime
     };
   }, []);
 
-  const handleInputChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = e.target.value;
-    setSearchValue(val);
-
-    if (!val || val.length < 3) {
-      setPredictions([]);
-      setIsOpen(false);
-      return;
-    }
+  const fetchPredictions = useCallback(async (val: string) => {
+    if (abortRef.current) abortRef.current.abort();
+    abortRef.current = new AbortController();
 
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000/api'}/places/autocomplete?input=${encodeURIComponent(val)}&sessionToken=${sessionToken}`);
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL || 'http://localhost:8000/api'}/places/autocomplete?input=${encodeURIComponent(val)}&sessionToken=${sessionToken}`,
+        { signal: abortRef.current.signal }
+      );
       if (response.ok) {
         const results = await response.json();
         if (Array.isArray(results)) {
@@ -83,10 +89,27 @@ export function PlacesSearch({ onPlaceSelect, placeholder = "Buscar estabelecime
         console.error("Autocomplete erro HTTP", response.status, err);
         toast.error(`Busca indisponível (${response.status}). Verifique a chave da API Google.`);
       }
-    } catch (error) {
+    } catch (error: any) {
+      if (error.name === 'AbortError') return;
       console.error("Error fetching places:", error);
       toast.error("Não foi possível conectar ao serviço de busca.");
     }
+  }, [sessionToken]);
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setSearchValue(val);
+
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+
+    if (!val || val.length < 3) {
+      if (abortRef.current) abortRef.current.abort();
+      setPredictions([]);
+      setIsOpen(false);
+      return;
+    }
+
+    debounceRef.current = setTimeout(() => fetchPredictions(val), 300);
   };
 
   const handleSelectPrediction = async (prediction: any) => {

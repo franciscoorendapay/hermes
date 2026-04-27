@@ -1,12 +1,20 @@
 # Symfony .htaccess with CORS headers for cPanel/LiteSpeed
 
-# Exempt public API endpoints from Basic Auth (if configured at server level)
-<If "%{REQUEST_URI} =~ m#/api/places#i">
-    Require all granted
-</If>
-<If "%{REQUEST_URI} =~ m#/api/geocode#i">
-    Require all granted
-</If>
+# Basic Auth com exceções para rotas públicas da API
+# SetEnvIf + Require env tem suporte em Apache e LiteSpeed (Require expr com regex não funciona no LiteSpeed)
+SetEnvIf Request_URI "^/api/places" no_auth
+SetEnvIf Request_URI "^/api/geocode" no_auth
+SetEnvIf Request_URI "^/api/auth/login" no_auth
+SetEnvIf Request_URI "^/api/auth/refresh" no_auth
+SetEnvIf Request_URI "^/api/auth/setup-password" no_auth
+
+AuthType Basic
+AuthName "Restricted Area"
+AuthUserFile /home/orendapay/api.hermes.orendapay.com.br/public/.htpasswd
+<RequireAny>
+    Require valid-user
+    Require env no_auth
+</RequireAny>
 
 <IfModule mod_rewrite.c>
     RewriteEngine On
