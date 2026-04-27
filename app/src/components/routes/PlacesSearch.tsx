@@ -71,11 +71,21 @@ export function PlacesSearch({ onPlaceSelect, placeholder = "Buscar estabelecime
       const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000/api'}/places/autocomplete?input=${encodeURIComponent(val)}&sessionToken=${sessionToken}`);
       if (response.ok) {
         const results = await response.json();
-        setPredictions(results);
-        setIsOpen(true);
+        if (Array.isArray(results)) {
+          setPredictions(results);
+          setIsOpen(results.length > 0);
+        } else {
+          console.error("Autocomplete retornou formato inesperado:", results);
+          toast.error("Serviço de busca indisponível no momento.");
+        }
+      } else {
+        const err = await response.json().catch(() => ({}));
+        console.error("Autocomplete erro HTTP", response.status, err);
+        toast.error(`Busca indisponível (${response.status}). Verifique a chave da API Google.`);
       }
     } catch (error) {
       console.error("Error fetching places:", error);
+      toast.error("Não foi possível conectar ao serviço de busca.");
     }
   };
 

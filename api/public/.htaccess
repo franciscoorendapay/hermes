@@ -1,5 +1,13 @@
 # Symfony .htaccess with CORS headers for cPanel/LiteSpeed
 
+# Exempt public API endpoints from Basic Auth (if configured at server level)
+<If "%{REQUEST_URI} =~ m#/api/places#i">
+    Require all granted
+</If>
+<If "%{REQUEST_URI} =~ m#/api/geocode#i">
+    Require all granted
+</If>
+
 <IfModule mod_rewrite.c>
     RewriteEngine On
 
